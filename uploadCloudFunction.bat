@@ -1,0 +1,1 @@
+"D:\Program Files (x86)\Tencent\微信web开发者工具\cli.bat" cloud functions deploy --e sam-9gkodcacda7de085 --n quickstartFunctions --r --project "C:\Users\Administrator\Desktop\firework\fireworks" --report_first --report
