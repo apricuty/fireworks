@@ -7,6 +7,7 @@ export default class SceneManager {
     this.canvas = null;
     this.fadeAlpha = 1;
     this.isFading = false;
+    this.dpr = wx.getSystemInfoSync().pixelRatio || 1;
     
     // 使用相对于页面的路径格式
     this.sceneImages = {
@@ -144,15 +145,26 @@ export default class SceneManager {
     // 绘制背景
     const background = this.scenes.get(this.currentScene);
     if (background) {
+      ctx.save();
       ctx.globalAlpha = this.fadeAlpha;
-      ctx.drawImage(
-        background,
-        0,
-        0,
-        ctx.canvas.width,
-        ctx.canvas.height
-      );
-      ctx.globalAlpha = 1;
+      
+      // 获取画布的实际显示尺寸
+      const displayWidth = ctx.canvas.width / (this.dpr || 1);
+      const displayHeight = ctx.canvas.height / (this.dpr || 1);
+      
+      try {
+        ctx.drawImage(
+          background,
+          0,
+          0,
+          displayWidth,
+          displayHeight
+        );
+      } catch (error) {
+        console.error('Failed to draw background:', error);
+      }
+      
+      ctx.restore();
     }
 
     // 如果开启下雪效果，渲染雪花

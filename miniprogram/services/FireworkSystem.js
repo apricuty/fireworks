@@ -23,21 +23,46 @@ export default class FireworkSystem {
 
   // 修改初始化渲染器方法
   async initRenderer(canvas) {
+    if (!canvas) {
+      console.error('Canvas is undefined');
+      return;
+    }
+
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     
-    // 设置画布尺寸
+    if (!this.ctx) {
+      console.error('Failed to get canvas context');
+      return;
+    }
+
+    // 获取设备信息
     const info = wx.getSystemInfoSync();
     this.dpr = info.pixelRatio;
-    canvas.width = info.windowWidth * this.dpr;
-    canvas.height = info.windowHeight * this.dpr;
     
-    // 设置画布缩放以适应高DPI屏幕
-    this.ctx.scale(this.dpr, this.dpr);
-
-    // 存储实际显示尺寸
+    // 保存实际显示尺寸
     this.displayWidth = info.windowWidth;
     this.displayHeight = info.windowHeight;
+    
+    // 设置画布的物理像素大小
+    try {
+      // 使用微信小程序的方式设置canvas尺寸
+      const query = wx.createSelectorQuery();
+      query.select('#fireworkCanvas')
+        .fields({ node: true, size: true })
+        .exec((res) => {
+          if (res[0]) {
+            const canvas = res[0].node;
+            canvas.width = this.displayWidth * this.dpr;
+            canvas.height = this.displayHeight * this.dpr;
+            
+            // 初始缩放以匹配DPR
+            this.ctx.scale(this.dpr, this.dpr);
+          }
+        });
+    } catch (error) {
+      console.error('Failed to set canvas size:', error);
+    }
   }
 
   // 发射烟花
