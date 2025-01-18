@@ -136,10 +136,5 @@
         backgroundColor="rgba(255, 255, 255, 0.2)"
       />
     </view>
-
-    <!-- 添加测试元素 -->
-    <view class="test-overlay">
-      层级测试元素 z-index: 1000
-    </view>
   </view>
 </view>

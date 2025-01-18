@@ -325,8 +325,9 @@ page {
   background: rgba(0, 0, 0, 0.8);
   z-index: 1200;
   pointer-events: auto;
-  border: 2px solid purple;
   transform: translateZ(0);
+  backdrop-filter: blur(10px);
+  box-shadow: -5px 0 15px rgba(0, 0, 0, 0.3);
 }
 
 .control-panel.visible {
@@ -397,13 +398,13 @@ page {
 .button-group {
   position: fixed;
   right: 20rpx;
-  top: 50%;
-  transform: translateY(-50%) translateZ(0);
+  bottom: 40rpx;
+  transform: translateZ(0);
   z-index: 1100;
   pointer-events: auto;
-  background-color: rgba(0, 255, 0, 0.3);
-  border: 2px solid white;
   padding: 10px;
+  display: flex;
+  gap: 20rpx;
 }
 
 .control-button {
@@ -436,21 +437,6 @@ page {
   padding: 0;
   margin: 0;
   line-height: 1;
-}
-
-/* 音量滑块 */
-.volume-slider {
-  position: fixed;
-  right: 120rpx;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 100;
-  pointer-events: auto;
-}
-
-.volume-slider.visible {
-  transform: translateY(-50%) translateX(0);
-  opacity: 1;
 }
 
 /* 设置面板优化 */
@@ -553,15 +539,25 @@ page {
   z-index: 100;
 }
 
-/* 添加一个测试元素在最上层 */
-.test-overlay {
-  position: fixed;
-  top: 20rpx;
-  left: 20rpx;
-  padding: 10rpx;
-  background-color: rgba(255, 255, 0, 0.5);
-  z-index: 1000;
-  pointer-events: none;
-  font-size: 24rpx;
-  color: white;
+/* 移除测试覆盖层样式 */
+- /* 添加一个测试元素在最上层 */
+- .test-overlay {
+-   position: fixed;
+-   top: 20rpx;
+-   left: 20rpx;
+-   padding: 10rpx;
+-   background-color: rgba(255, 255, 0, 0.5);
+-   z-index: 1000;
+-   pointer-events: none;
+-   font-size: 24rpx;
+-   color: white;
+- }
+
+/* 移除音量滑块相关样式 */
+.volume-slider {
+  display: none;  /* 隐藏音量滑块 */
+}
+
+.volume-slider.visible {
+  display: none;  /* 确保在visible状态下也保持隐藏 */
 }

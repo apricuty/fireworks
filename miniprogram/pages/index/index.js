@@ -247,22 +247,13 @@ Page({
   // 切换静音
   toggleMute() {
     const newState = !this.data.isMuted;
-    console.log(`[Debug UI] Toggling mute state to: ${newState}`);
-    console.log(`[Debug UI] Using image: ${newState ? './images/ui/mute.png' : './images/ui/volume.png'}`);
     this.setData({
-      isMuted: newState
-    });
-  },
-
-  // 音量变化
-  onVolumeChange(e) {
-    const volume = e.detail.value;
-    this.setData({
-      volumeValue: volume,
-      isMuted: volume === 0
+      isMuted: newState,
+      volumeValue: newState ? 0 : 80  // 直接在静音切换时设置音量
     });
     
-    this.audioManager.setAllVolume(volume / 100);
+    // 更新音频管理器的音量
+    this.audioManager.setAllVolume(newState ? 0 : 0.8);
   },
 
   onUnload() {
