@@ -48,8 +48,14 @@ export default class SceneManager {
     });
 
     this.isSnowing = enabled;
+    
     if (enabled && this.snowParticles.length === 0) {
       this.initSnow();
+    } else if (!enabled && this.ctx) {
+      // 关闭效果时清除画布
+      this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+      // 可选：清空粒子数组
+      this.snowParticles = [];
     }
   }
 
