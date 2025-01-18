@@ -1,52 +1,128 @@
 <!--index.wxml-->
-<view class="container">
-  <view class="main">
-    <view class="title font_title_1">快速开始</view>
-    <view class="sub_title">
-      欢迎使用云开发！本页将带你了解如何使用云开发提供的能力快速开发小程序。
+<view class="container" 
+      bindtouchstart="onTouchStart" 
+      bindtouchmove="onTouchMove">
+  <!-- 主画布 -->
+  <canvas type="2d" id="fireworkCanvas" class="firework-canvas"></canvas>
+
+  <!-- 引线区域 -->
+  <view class="fuse-area" bindtap="onTapFuse">
+    <view class="fuse-wrapper">
+      <image 
+        class="fuse-image {{isFuseBurning ? 'burning' : ''}}" 
+        src="./images/fuse.png"
+        binderror="onImageError"
+        data-image="fuse"
+        style="height: {{fuseHeight}}%"
+      ></image>
     </view>
-    <view class="ability_container">
-      <view class="ability_title">你将学习到</view>
-      <view class="ability_item" wx:for="{{ knowledgePoints }}" wx:for-item="point" wx:key="id">
-        {{ point.title }}
-      </view>
-    </view>
-    <view class="title font_title_2">5分钟上手教程</view>
-    <view class="sub_title">
-      我们将会使用常用的云开发能力，快速实现一个简单的商品列表页面。无需购买服务器，即可快速开发出后台服务、读取数据库、存取文件、调用微信开放服务。教程每个步骤的实时运行效果可在 <text class="text_link" bind:tap="gotoGoodsListPage">商品列表</text> 页面查看。
-    </view>
-    <view class="seperator" />
-    <view class="step_container" wx:for="{{ steps }}" wx:key="id" wx:for-item="step">
-      <view id="step_{{ step.id }}" data-step="{{ step.id }}" class="step_title">
-        <view class="step_id_container">
-          <view class="step_id_mark">NO.</view>
-          <view class="step_id_content">0{{ step.id }}</view>
+  </view>
+
+  <!-- 面板遮罩 -->
+  <view class="panel-mask {{isPanelVisible ? 'visible' : ''}}" 
+        bindtap="togglePanel"></view>
+
+  <!-- 控制面板 -->
+  <view class="control-panel {{isPanelVisible ? 'visible' : ''}}">
+    <view class="panel-header">设置</view>
+    <view class="panel-content">
+      <!-- 场景选择 -->
+      <view class="panel-section">
+        <view class="section-title">场景选择</view>
+        <view class="scene-list">
+          <view class="scene-item {{currentScene === 'night' ? 'active' : ''}}" 
+                bindtap="changeScene" data-scene="night">夜空</view>
+          <view class="scene-item {{currentScene === 'grassland' ? 'active' : ''}}" 
+                bindtap="changeScene" data-scene="grassland">草原</view>
+          <view class="scene-item {{currentScene === 'sea' ? 'active' : ''}}" 
+                bindtap="changeScene" data-scene="sea">海面</view>
+          <view class="scene-item {{currentScene === 'city' ? 'active' : ''}}" 
+                bindtap="changeScene" data-scene="city">城市</view>
+          <view class="scene-item {{currentScene === 'village' ? 'active' : ''}}" 
+                bindtap="changeScene" data-scene="village">乡村</view>
         </view>
-        <view class="font_title_2">{{ step.title }}</view>
       </view>
-      <view class="step_content">
-        <block wx:for="{{ step.contents }}" wx:for-item="item" wx:key="index">
-          <view wx:if="{{ item.type === 'text' }}" class="text_zone">
-            <rich-text nodes="<p style='line-height: 26px;'>{{ item.content }}</p>" />
-          </view>
-          <view wx:if="{{ item.type === 'code' }}" class="code_zone">
-            <image class="btn-copy" data-code="{{ item.content }}" bind:tap="copyCode" src="../../images/icons/copy.png" />
-            <rich-text nodes="<pre style='overflow: scroll;'>{{ item.content }}</pre>" />
-          </view>
-          <view wx:if="{{ item.type === 'image' }}" class="image_zone">
-            <image src="../../images/{{ item.content }}" mode="widthFix" />
-          </view>
-          <view wx:if="{{ item.type === 'text-link' }}" class="text_zone">
-            <view>{{item.content[0]}}<text class="text_link" bind:tap="gotoGoodsListPage">{{item.content[1]}}</text>{{item.content[2]}}</view>
-          </view>
-        </block>
+
+      <!-- 效果设置 -->
+      <view class="panel-section">
+        <view class="section-title">效果设置</view>
+        <view class="effect-item">
+          <text>下雪效果</text>
+          <switch checked="{{isSnowing}}" bindchange="toggleSnow"/>
+        </view>
+        <view class="effect-item">
+          <text>镜头跟随</text>
+          <switch checked="{{cameraFollowing}}" bindchange="toggleCameraFollow"/>
+        </view>
       </view>
-      <view class="seperator" />
+
+      <!-- 文字烟花 -->
+      <view class="panel-section">
+        <view class="section-title">文字烟花</view>
+        <input class="text-input" 
+               placeholder="输入文字发射文字烟花" 
+               value="{{customText}}" 
+               maxlength="8"
+               bindinput="setCustomText"/>
+        <view class="tip-text">最多输入8个字符</view>
+        <view class="tip-text">留空发射普通烟花</view>
+      </view>
     </view>
-    <view class="bottom-tip">
-      至此，我们完成了一个带分享功能的小程序，利用了云开发的云函数、云数据库、云存储等能力，无需服务器即可快速完成较为复杂的功能。
+  </view>
+
+  <!-- 控制按钮组 -->
+  <view class="button-group">
+    <!-- 设置按钮 -->
+    <view class="control-button settings {{isPanelVisible ? 'active' : ''}}" bindtap="togglePanel">
+      <image 
+        src="./images/ui/settings.png" 
+        binderror="onImageError"
+        data-image="settings"
+        mode="aspectFit"
+      ></image>
     </view>
-    <view  class="bottom-tip">此外，云开发还提供了云模板、云后台、云托管等更多高级能力，可点击下方按钮前往查看。</view>
-    <view class="button" bind:tap="discoverCloud">探索云开发更多功能</view>
+    
+    <!-- 暂停/播放按钮 -->
+    <view class="control-button pause" bindtap="togglePause">
+      <image 
+        src="{{isPaused ? './images/ui/play.png' : './images/ui/pause.png'}}"
+        binderror="onImageError"
+        data-image="{{isPaused ? 'play' : 'pause'}}"
+        mode="aspectFit"
+      ></image>
+    </view>
+    
+    <!-- 音量按钮 -->
+    <view class="control-button volume" bindtap="toggleMute">
+      <image 
+        src="{{isMuted ? './images/ui/mute.png' : './images/ui/volume.png'}}"
+        binderror="onImageError"
+        data-image="{{isMuted ? 'mute' : 'volume'}}"
+        mode="aspectFit"
+      ></image>
+    </view>
+    
+    <!-- 分享按钮 -->
+    <button class="control-button share" open-type="share">
+      <image 
+        src="./images/ui/share.png"
+        binderror="onImageError"
+        data-image="share"
+        mode="aspectFit"
+      ></image>
+    </button>
+  </view>
+
+  <!-- 音量滑块 -->
+  <view class="volume-slider {{isVolumeVisible ? 'visible' : ''}}">
+    <slider 
+      min="0" 
+      max="100" 
+      value="{{volumeValue}}" 
+      bindchange="onVolumeChange"
+      block-size="12"
+      activeColor="#07C160"
+      backgroundColor="rgba(255, 255, 255, 0.2)"
+    />
   </view>
 </view>

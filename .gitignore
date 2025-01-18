@@ -1,0 +1,17 @@
+# 开发工具配置
+.DS_Store
+.idea
+.vscode
+
+# 项目依赖
+node_modules/
+miniprogram_npm/
+
+# 编译输出
+dist/
+
+# 本地配置
+project.private.config.json
+
+# 其他
+*.log 

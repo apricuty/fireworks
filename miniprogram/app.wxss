@@ -1,27 +1,12 @@
-/**app.wxss**/
-.container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  box-sizing: border-box;
-} 
-
-button {
-  background: initial;
-}
-
-button:focus{
-  outline: 0;
-}
-
-button::after{
-  border: none;
-}
-
-
 page {
-  background: #f6f6f6;
+  height: 100vh;
+  background: #000000;
+}
+
+.container {
+  height: 100%;
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
-}
+  box-sizing: border-box;
+  position: relative;
+} 
