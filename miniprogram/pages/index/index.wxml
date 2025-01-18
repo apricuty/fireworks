@@ -8,7 +8,13 @@
          mode="aspectFill">
   </image>
   
-  <!-- 效果canvas -->
+  <!-- 雪花效果canvas -->
+  <canvas type="2d" 
+          id="snowCanvas" 
+          class="snow-canvas">
+  </canvas>
+  
+  <!-- 烟花效果canvas -->
   <canvas type="2d" 
           id="fireworkCanvas" 
           class="firework-canvas">

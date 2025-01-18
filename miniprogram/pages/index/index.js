@@ -3,6 +3,7 @@ const app = getApp();
 // 导入核心类
 import FireworkSystem from '../../services/FireworkSystem';
 import AudioManager from '../../services/AudioManager';
+import SceneManager from '../../services/SceneManager';
 
 Page({
   data: {
@@ -23,6 +24,7 @@ Page({
   // 系统实例
   fireworkSystem: null,
   audioManager: null,
+  sceneManager: null,
 
   onLoad() {
     // 初始化系统
@@ -33,23 +35,41 @@ Page({
 
   async onReady() {
     try {
-      // 获取效果canvas
+      console.log('[Init Debug] Page onReady started');
+      // 获取canvas
       const query = wx.createSelectorQuery();
-      const effectCanvas = await new Promise((resolve) => {
-        query.select('#fireworkCanvas')
-          .node()
-          .exec((res) => {
-            resolve(res[0].node);
-          });
-      });
+      const [effectCanvas, snowCanvas] = await Promise.all([
+        new Promise((resolve) => {
+          query.select('#fireworkCanvas')
+            .node()
+            .exec((res) => {
+              resolve(res[0].node);
+            });
+        }),
+        new Promise((resolve) => {
+          query.select('#snowCanvas')  // 添加雪花效果的canvas
+            .node()
+            .exec((res) => {
+              resolve(res[0].node);
+            });
+        })
+      ]);
+      
+      // 初始化系统
+      this.initSystems();
       
       // 初始化烟花系统
-      this.fireworkSystem.initRenderer(effectCanvas);
+      await this.fireworkSystem.initRenderer(effectCanvas);
+      
+      // 初始化场景管理器
+      await this.sceneManager.initCanvas(snowCanvas);
+      
+      console.log('[Init Debug] Canvas initialization completed');
       
       // 开始渲染循环
       this.startRenderLoop();
     } catch (error) {
-      console.error('Failed to initialize:', error);
+      console.error('[Init Debug] Initialization failed:', error);
       wx.showToast({
         title: '初始化失败',
         icon: 'none'
@@ -59,11 +79,14 @@ Page({
 
   // 初始化核心系统
   initSystems() {
+    console.log('[Init Debug] Starting systems initialization');
     this.fireworkSystem = new FireworkSystem();
     this.audioManager = new AudioManager();
+    this.sceneManager = new SceneManager();
     
     // 设置音效管理器
     this.fireworkSystem.setAudioManager(this.audioManager);
+    console.log('[Init Debug] Core systems initialized');
   },
 
   // 初始化触摸事件
@@ -101,21 +124,26 @@ Page({
     const loop = () => {
       try {
         if (!this.data.isPaused) {
+          const currentTime = Date.now();
+          const deltaTime = (currentTime - this.lastFrameTime) / 1000;
+          this.lastFrameTime = currentTime;
+
+          // 更新场景（包括雪花效果）
+          if (this.sceneManager) {
+            this.sceneManager.update(deltaTime);
+          }
+
           // 更新烟花系统
           this.fireworkSystem.update();
-          // 渲染烟花效果
           this.fireworkSystem.render();
         }
       } catch (error) {
-        console.error('Render loop error:', error);
-        this.data.isPaused = true;
-        wx.showToast({
-          title: '渲染错误',
-          icon: 'none'
-        });
+        console.error('[Render Debug] Render loop error:', error);
       }
       this.animationFrame = setTimeout(loop, 1000 / 60);
     };
+    
+    this.lastFrameTime = Date.now();
     loop();
   },
 
@@ -224,9 +252,22 @@ Page({
 
   // 切换下雪效果
   toggleSnow() {
-    this.setData({
-      isSnowing: !this.data.isSnowing
+    const newState = !this.data.isSnowing;
+    console.log('[UI Debug] Toggling snow effect:', {
+      oldState: this.data.isSnowing,
+      newState: newState
     });
+    
+    this.setData({
+      isSnowing: newState
+    });
+
+    if (this.sceneManager) {
+      console.log('[UI Debug] Calling SceneManager.toggleSnow');
+      this.sceneManager.toggleSnow(newState);
+    } else {
+      console.error('[UI Debug] SceneManager not initialized when toggling snow');
+    }
   },
 
   // 切换相机跟随
