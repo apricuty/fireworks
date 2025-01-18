@@ -1,12 +1,4 @@
 App({
-  onError(error) {
-    console.error('App error:', error);
-    wx.showToast({
-      title: '应用出错',
-      icon: 'none'
-    });
-  },
-
   onLaunch() {
     // 检查设备性能
     const systemInfo = wx.getSystemInfoSync();

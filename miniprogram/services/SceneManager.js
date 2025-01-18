@@ -8,6 +8,9 @@ export default class SceneManager {
     this.fadeAlpha = 1;
     this.isFading = false;
     this.dpr = wx.getSystemInfoSync().pixelRatio || 1;
+    this.backgroundCanvas = null;
+    this.backgroundCtx = null;
+    this.needsRender = true;
     
     // 使用相对于页面的路径格式
     this.sceneImages = {
@@ -21,31 +24,59 @@ export default class SceneManager {
   }
 
   // 修改初始化方法
-  async initCanvas(canvas) {
-    this.canvas = canvas;
-    // 在canvas初始化后再加载场景
-    await this.loadScenes();
+  async initCanvas() {
+    try {
+      // 获取背景canvas上下文
+      const query = wx.createSelectorQuery();
+      const canvas = await new Promise((resolve) => {
+        query.select('#backgroundCanvas')
+          .node()
+          .exec((res) => {
+            resolve(res[0].node);
+          });
+      });
+
+      this.backgroundCanvas = canvas;
+      this.backgroundCtx = canvas.getContext('2d');
+
+      // 设置canvas尺寸
+      const info = wx.getSystemInfoSync();
+      canvas.width = info.windowWidth * this.dpr;
+      canvas.height = info.windowHeight * this.dpr;
+      
+      // 初始缩放以匹配DPR
+      this.backgroundCtx.scale(this.dpr, this.dpr);
+
+      // 加载场景
+      await this.loadScenes();
+    } catch (error) {
+      console.error('Failed to initialize background canvas:', error);
+    }
   }
 
   // 修改场景加载方法
   async loadScenes() {
-    if (!this.canvas) {
-      console.error('Canvas not initialized');
+    if (!this.backgroundCanvas) {
+      console.error('Background Canvas not initialized');
       return;
     }
 
+    console.log('[Debug] Starting to load scenes...');
     // 预加载所有场景背景
     const scenes = ['night', 'grassland', 'sea', 'city', 'village'];
     let loadedAny = false;
 
     for (const scene of scenes) {
       try {
+        console.log(`[Debug] Loading scene: ${scene}`);
         const image = await this.loadImage(scene);
         this.scenes.set(scene, image);
         loadedAny = true;
+        console.log(`[Debug] Successfully loaded scene: ${scene}`);
       } catch (error) {
         console.error(`Failed to load scene: ${scene}`, error);
         try {
+          console.log('[Debug] Attempting to load fallback image');
           const fallbackImage = await this.loadImage('fallback');
           this.scenes.set(scene, fallbackImage);
           loadedAny = true;
@@ -55,13 +86,7 @@ export default class SceneManager {
       }
     }
 
-    // 如果所有场景都加载失败，创建一个纯色背景
-    if (!loadedAny) {
-      console.warn('All scenes failed to load, using solid color background');
-      const ctx = this.canvas.getContext('2d');
-      ctx.fillStyle = '#000000';
-      ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-    }
+    console.log(`[Debug] Scene loading complete. Loaded any scenes: ${loadedAny}`);
   }
 
   // 修改图片加载方法
@@ -77,7 +102,7 @@ export default class SceneManager {
         return;
       }
 
-      const image = this.canvas.createImage();
+      const image = this.backgroundCanvas.createImage();
       
       // 使用完整的小程序文件系统路径
       wx.getImageInfo({
@@ -117,16 +142,24 @@ export default class SceneManager {
     });
   }
 
-  // 切换场景
+  // 添加标记需要渲染的方法
+  requestRender() {
+    this.needsRender = true;
+  }
+
+  // 修改场景切换方法
   async switchScene(sceneName) {
     if (!this.scenes.has(sceneName) || this.isFading) {
       return;
     }
 
     this.isFading = true;
+    this.requestRender();  // 请求渲染
+
     // 淡出动画
     for (let i = 0; i < 10; i++) {
       this.fadeAlpha = 1 - (i / 10);
+      this.requestRender();  // 每次透明度变化都需要渲染
       await new Promise(resolve => setTimeout(resolve, 50));
     }
 
@@ -135,57 +168,19 @@ export default class SceneManager {
     // 淡入动画
     for (let i = 0; i < 10; i++) {
       this.fadeAlpha = i / 10;
+      this.requestRender();  // 每次透明度变化都需要渲染
       await new Promise(resolve => setTimeout(resolve, 50));
     }
     this.isFading = false;
   }
 
-  // 渲染场景
-  render(ctx) {
-    // 绘制背景
-    const background = this.scenes.get(this.currentScene);
-    if (background) {
-      ctx.save();
-      ctx.globalAlpha = this.fadeAlpha;
-      
-      // 获取画布的实际显示尺寸
-      const displayWidth = ctx.canvas.width / (this.dpr || 1);
-      const displayHeight = ctx.canvas.height / (this.dpr || 1);
-      
-      try {
-        ctx.drawImage(
-          background,
-          0,
-          0,
-          displayWidth,
-          displayHeight
-        );
-      } catch (error) {
-        console.error('Failed to draw background:', error);
-      }
-      
-      ctx.restore();
-    }
-
-    // 如果开启下雪效果，渲染雪花
-    if (this.isSnowing) {
-      this.renderSnow(ctx);
-    }
-  }
-
-  // 更新场景
-  update(deltaTime) {
-    if (this.isSnowing) {
-      this.updateSnow(deltaTime);
-    }
-  }
-
-  // 切换下雪效果
+  // 修改下雪效果切换方法
   toggleSnow(enabled) {
     this.isSnowing = enabled;
     if (enabled && this.snowParticles.length === 0) {
       this.initSnow();
     }
+    this.requestRender();  // 切换下雪效果时需要渲染
   }
 
   // 初始化雪花
@@ -245,5 +240,63 @@ export default class SceneManager {
     });
     
     ctx.restore();
+  }
+
+  // 修改渲染方法
+  render() {
+    // 如果不需要渲染，直接返回
+    if (!this.needsRender || !this.backgroundCtx) return;
+
+    console.log('[Scene Render] Starting scene render');
+    
+    // 清除之前的内容
+    this.backgroundCtx.clearRect(0, 0, this.backgroundCanvas.width, this.backgroundCanvas.height);
+
+    // 保存当前上下文状态
+    this.backgroundCtx.save();
+    
+    // 设置合成模式，使其不会覆盖其他内容
+    this.backgroundCtx.globalCompositeOperation = 'destination-over';
+
+    const background = this.scenes.get(this.currentScene);
+    if (background) {
+      this.backgroundCtx.globalAlpha = this.fadeAlpha;
+      
+      const displayWidth = this.backgroundCanvas.width / this.dpr;
+      const displayHeight = this.backgroundCanvas.height / this.dpr;
+      
+      try {
+        this.backgroundCtx.drawImage(
+          background,
+          0,
+          0,
+          displayWidth,
+          displayHeight
+        );
+      } catch (error) {
+        console.error('[Scene Render] Failed to draw background:', error);
+      }
+    }
+
+    // 如果开启下雪效果，渲染雪花
+    if (this.isSnowing) {
+      this.renderSnow(this.backgroundCtx);
+      this.requestRender();  // 如果有下雪效果，需要继续渲染
+    }
+
+    // 恢复上下文状态
+    this.backgroundCtx.restore();
+
+    // 渲染完成后重置标记
+    if (!this.isSnowing) {
+      this.needsRender = false;
+    }
+  }
+
+  // 更新场景
+  update(deltaTime) {
+    if (this.isSnowing) {
+      this.updateSnow(deltaTime);
+    }
   }
 } 

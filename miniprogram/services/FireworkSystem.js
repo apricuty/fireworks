@@ -13,12 +13,11 @@ export default class FireworkSystem {
       target: new Vector3(0, 0, 0)
     };
     this.cameraFollowing = true;
-    this.sceneManager = null;
     this.audioManager = null;
-    this.dpr = 1; // 添加设备像素比
+    this.dpr = 1;
     this.fpsHistory = [];
     this.lastFrameTime = Date.now();
-    this.performanceMode = 'high'; // high, medium, low
+    this.performanceMode = 'high';
   }
 
   // 修改初始化渲染器方法
@@ -229,58 +228,64 @@ export default class FireworkSystem {
       return;
     }
 
-    // 清空画布
-    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    // 只在有粒子时才进行渲染
+    if (this.particles.length > 0) {
+      // 保存当前上下文状态
+      this.ctx.save();
 
-    // 先渲染场景
-    this.sceneManager.render(this.ctx);
+      // 清除画布
+      this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
-    // 绘制粒子和文字
-    this.particles.forEach(particle => {
-      // 绘制拖尾
-      if (particle.trail.length > 1) {
-        this.ctx.beginPath();
-        this.ctx.moveTo(particle.trail[0].x, particle.trail[0].y);
-        
-        for (let i = 1; i < particle.trail.length; i++) {
-          this.ctx.lineTo(particle.trail[i].x, particle.trail[i].y);
+      // 设置合成模式为叠加
+      this.ctx.globalCompositeOperation = 'lighter';
+
+      // 绘制粒子和文字
+      this.particles.forEach(particle => {
+        // 绘制拖尾
+        if (particle.trail.length > 1) {
+          this.ctx.beginPath();
+          this.ctx.moveTo(particle.trail[0].x, particle.trail[0].y);
+          
+          for (let i = 1; i < particle.trail.length; i++) {
+            this.ctx.lineTo(particle.trail[i].x, particle.trail[i].y);
+          }
+          
+          this.ctx.strokeStyle = `rgba(${particle.color[0] * 255}, ${
+            particle.color[1] * 255
+          }, ${particle.color[2] * 255}, ${particle.color[3] * 0.5})`;
+          this.ctx.lineWidth = particle.size * 0.5;
+          this.ctx.stroke();
         }
-        
-        this.ctx.strokeStyle = `rgba(${particle.color[0] * 255}, ${
-          particle.color[1] * 255
-        }, ${particle.color[2] * 255}, ${particle.color[3] * 0.5})`;
-        this.ctx.lineWidth = particle.size * 0.5;
-        this.ctx.stroke();
-      }
 
-      if (particle.text) {
-        // 渲染文字
-        this.ctx.save();
-        this.ctx.font = `${particle.size}px Arial`;
-        this.ctx.fillStyle = `rgba(${particle.color[0] * 255}, ${
-          particle.color[1] * 255
-        }, ${particle.color[2] * 255}, ${particle.color[3]})`;
-        this.ctx.textAlign = 'center';
-        this.ctx.textBaseline = 'middle';
-        this.ctx.fillText(particle.text, particle.position.x, particle.position.y);
-        this.ctx.restore();
-      } else {
-        // 渲染普通粒子
-        this.ctx.beginPath();
-        this.ctx.arc(
-          particle.position.x,
-          particle.position.y,
-          particle.size,
-          0,
-          Math.PI * 2
-        );
-        this.ctx.fillStyle = `rgba(${particle.color[0] * 255}, ${
-          particle.color[1] * 255
-        }, ${particle.color[2] * 255}, ${particle.color[3]})`;
-        this.ctx.fill();
-      }
-    });
+        if (particle.text) {
+          // 渲染文字
+          this.ctx.font = `${particle.size}px Arial`;
+          this.ctx.fillStyle = `rgba(${particle.color[0] * 255}, ${
+            particle.color[1] * 255
+          }, ${particle.color[2] * 255}, ${particle.color[3]})`;
+          this.ctx.textAlign = 'center';
+          this.ctx.textBaseline = 'middle';
+          this.ctx.fillText(particle.text, particle.position.x, particle.position.y);
+        } else {
+          // 渲染普通粒子
+          this.ctx.beginPath();
+          this.ctx.arc(
+            particle.position.x,
+            particle.position.y,
+            particle.size,
+            0,
+            Math.PI * 2
+          );
+          this.ctx.fillStyle = `rgba(${particle.color[0] * 255}, ${
+            particle.color[1] * 255
+          }, ${particle.color[2] * 255}, ${particle.color[3]})`;
+          this.ctx.fill();
+        }
+      });
+
+      // 恢复上下文状态
+      this.ctx.restore();
+    }
 
     this.monitorPerformance();
   }
@@ -294,11 +299,6 @@ export default class FireworkSystem {
   dispose() {
     this.particlePool.releaseAll();
     this.particles = [];
-  }
-
-  // 设置场景管理器
-  setSceneManager(sceneManager) {
-    this.sceneManager = sceneManager;
   }
 
   // 设置音效管理器

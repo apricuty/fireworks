@@ -2,7 +2,6 @@ const app = getApp();
 
 // 导入核心类
 import FireworkSystem from '../../services/FireworkSystem';
-import SceneManager from '../../services/SceneManager';
 import AudioManager from '../../services/AudioManager';
 
 Page({
@@ -10,6 +9,7 @@ Page({
     isPanelVisible: false,
     isPaused: false,
     currentScene: 'night',
+    currentSceneImage: './images/scenes/night.png',  // 添加当前场景图片路径
     isSnowing: false,
     cameraFollowing: true,
     customText: '',
@@ -22,7 +22,6 @@ Page({
 
   // 系统实例
   fireworkSystem: null,
-  sceneManager: null,
   audioManager: null,
 
   onLoad() {
@@ -34,9 +33,9 @@ Page({
 
   async onReady() {
     try {
-      // 获取画布上下文
+      // 获取效果canvas
       const query = wx.createSelectorQuery();
-      const canvas = await new Promise((resolve) => {
+      const effectCanvas = await new Promise((resolve) => {
         query.select('#fireworkCanvas')
           .node()
           .exec((res) => {
@@ -44,12 +43,9 @@ Page({
           });
       });
       
-      // 初始化渲染系统
-      this.fireworkSystem.initRenderer(canvas);
-      // 初始化场景管理器的 canvas 并等待场景加载
-      await this.sceneManager.initCanvas(canvas);
-      // 设置场景管理器
-      this.fireworkSystem.setSceneManager(this.sceneManager);
+      // 初始化烟花系统
+      this.fireworkSystem.initRenderer(effectCanvas);
+      
       // 开始渲染循环
       this.startRenderLoop();
     } catch (error) {
@@ -64,7 +60,6 @@ Page({
   // 初始化核心系统
   initSystems() {
     this.fireworkSystem = new FireworkSystem();
-    this.sceneManager = new SceneManager();
     this.audioManager = new AudioManager();
     
     // 设置音效管理器
@@ -106,16 +101,13 @@ Page({
     const loop = () => {
       try {
         if (!this.data.isPaused) {
-          // 更新场景
-          this.sceneManager.update(1/60);
           // 更新烟花系统
           this.fireworkSystem.update();
-          // 渲染
+          // 渲染烟花效果
           this.fireworkSystem.render();
         }
       } catch (error) {
         console.error('Render loop error:', error);
-        // 停止渲染循环
         this.data.isPaused = true;
         wx.showToast({
           title: '渲染错误',
@@ -216,9 +208,17 @@ Page({
   // 切换场景
   changeScene(e) {
     const scene = e.currentTarget.dataset.scene;
-    this.sceneManager.switchScene(scene);
+    const sceneImages = {
+      night: './images/scenes/night.png',
+      grassland: './images/scenes/grassland.png',
+      sea: './images/scenes/sea.png',
+      city: './images/scenes/city.png',
+      village: './images/scenes/village.png'
+    };
+
     this.setData({
-      currentScene: scene
+      currentScene: scene,
+      currentSceneImage: sceneImages[scene]
     });
   },
 
@@ -227,7 +227,6 @@ Page({
     this.setData({
       isSnowing: !this.data.isSnowing
     });
-    this.sceneManager.toggleSnow(this.data.isSnowing);
   },
 
   // 切换相机跟随

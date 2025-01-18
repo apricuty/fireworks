@@ -2,127 +2,144 @@
 <view class="container" 
       bindtouchstart="onTouchStart" 
       bindtouchmove="onTouchMove">
-  <!-- 主画布 -->
-  <canvas type="2d" id="fireworkCanvas" class="firework-canvas"></canvas>
+  <!-- 背景图片 -->
+  <image class="background-image"
+         src="{{currentSceneImage}}"
+         mode="aspectFill">
+  </image>
+  
+  <!-- 效果canvas -->
+  <canvas type="2d" 
+          id="fireworkCanvas" 
+          class="firework-canvas">
+  </canvas>
 
-  <!-- 引线区域 -->
-  <view class="fuse-area" bindtap="onTapFuse">
-    <view class="fuse-wrapper">
-      <image 
-        class="fuse-image {{isFuseBurning ? 'burning' : ''}}" 
-        src="./images/fuse.png"
-        binderror="onImageError"
-        data-image="fuse"
-        style="height: {{fuseHeight}}%"
-      ></image>
-    </view>
-  </view>
-
-  <!-- 面板遮罩 -->
-  <view class="panel-mask {{isPanelVisible ? 'visible' : ''}}" 
-        bindtap="togglePanel"></view>
-
-  <!-- 控制面板 -->
-  <view class="control-panel {{isPanelVisible ? 'visible' : ''}}">
-    <view class="panel-header">设置</view>
-    <view class="panel-content">
-      <!-- 场景选择 -->
-      <view class="panel-section">
-        <view class="section-title">场景选择</view>
-        <view class="scene-list">
-          <view class="scene-item {{currentScene === 'night' ? 'active' : ''}}" 
-                bindtap="changeScene" data-scene="night">夜空</view>
-          <view class="scene-item {{currentScene === 'grassland' ? 'active' : ''}}" 
-                bindtap="changeScene" data-scene="grassland">草原</view>
-          <view class="scene-item {{currentScene === 'sea' ? 'active' : ''}}" 
-                bindtap="changeScene" data-scene="sea">海面</view>
-          <view class="scene-item {{currentScene === 'city' ? 'active' : ''}}" 
-                bindtap="changeScene" data-scene="city">城市</view>
-          <view class="scene-item {{currentScene === 'village' ? 'active' : ''}}" 
-                bindtap="changeScene" data-scene="village">乡村</view>
-        </view>
-      </view>
-
-      <!-- 效果设置 -->
-      <view class="panel-section">
-        <view class="section-title">效果设置</view>
-        <view class="effect-item">
-          <text>下雪效果</text>
-          <switch checked="{{isSnowing}}" bindchange="toggleSnow"/>
-        </view>
-        <view class="effect-item">
-          <text>镜头跟随</text>
-          <switch checked="{{cameraFollowing}}" bindchange="toggleCameraFollow"/>
-        </view>
-      </view>
-
-      <!-- 文字烟花 -->
-      <view class="panel-section">
-        <view class="section-title">文字烟花</view>
-        <input class="text-input" 
-               placeholder="输入文字发射文字烟花" 
-               value="{{customText}}" 
-               maxlength="8"
-               bindinput="setCustomText"/>
-        <view class="tip-text">最多输入8个字符</view>
-        <view class="tip-text">留空发射普通烟花</view>
+  <!-- UI层包装 -->
+  <view class="ui-wrapper">
+    <!-- 原有的UI元素 -->
+    <view class="fuse-area" bindtap="onTapFuse">
+      <view class="fuse-wrapper">
+        <image 
+          class="fuse-image {{isFuseBurning ? 'burning' : ''}}" 
+          src="./images/fuse.png"
+          binderror="onImageError"
+          data-image="fuse"
+          style="height: {{fuseHeight}}%"
+        ></image>
       </view>
     </view>
-  </view>
 
-  <!-- 控制按钮组 -->
-  <view class="button-group">
-    <!-- 设置按钮 -->
-    <view class="control-button settings {{isPanelVisible ? 'active' : ''}}" bindtap="togglePanel">
-      <image 
-        src="./images/ui/settings.png" 
-        binderror="onImageError"
-        data-image="settings"
-        mode="aspectFit"
-      ></image>
-    </view>
-    
-    <!-- 暂停/播放按钮 -->
-    <view class="control-button pause" bindtap="togglePause">
-      <image 
-        src="{{isPaused ? './images/ui/play.png' : './images/ui/pause.png'}}"
-        binderror="onImageError"
-        data-image="{{isPaused ? 'play' : 'pause'}}"
-        mode="aspectFit"
-      ></image>
-    </view>
-    
-    <!-- 音量按钮 -->
-    <view class="control-button volume" bindtap="toggleMute">
-      <image 
-        src="{{isMuted ? './images/ui/mute.png' : './images/ui/volume.png'}}"
-        binderror="onImageError"
-        data-image="{{isMuted ? 'mute' : 'volume'}}"
-        mode="aspectFit"
-      ></image>
-    </view>
-    
-    <!-- 分享按钮 -->
-    <button class="control-button share" open-type="share">
-      <image 
-        src="./images/ui/share.png"
-        binderror="onImageError"
-        data-image="share"
-        mode="aspectFit"
-      ></image>
-    </button>
-  </view>
+    <!-- 面板遮罩 -->
+    <view class="panel-mask {{isPanelVisible ? 'visible' : ''}}" 
+          bindtap="togglePanel"></view>
 
-  <!-- 音量滑块 -->
-  <view class="volume-slider {{isVolumeVisible ? 'visible' : ''}}">
-    <slider 
-      min="0" 
-      max="100" 
-      value="{{volumeValue}}" 
-      bindchange="onVolumeChange"
-      block-size="12"
-      activeColor="#07C160"
-      backgroundColor="rgba(255, 255, 255, 0.2)"
-    />
+    <!-- 控制面板 -->
+    <view class="control-panel {{isPanelVisible ? 'visible' : ''}}">
+      <view class="panel-header">设置</view>
+      <view class="panel-content">
+        <!-- 场景选择 -->
+        <view class="panel-section">
+          <view class="section-title">场景选择</view>
+          <view class="scene-list">
+            <view class="scene-item {{currentScene === 'night' ? 'active' : ''}}" 
+                  bindtap="changeScene" data-scene="night">夜空</view>
+            <view class="scene-item {{currentScene === 'grassland' ? 'active' : ''}}" 
+                  bindtap="changeScene" data-scene="grassland">草原</view>
+            <view class="scene-item {{currentScene === 'sea' ? 'active' : ''}}" 
+                  bindtap="changeScene" data-scene="sea">海面</view>
+            <view class="scene-item {{currentScene === 'city' ? 'active' : ''}}" 
+                  bindtap="changeScene" data-scene="city">城市</view>
+            <view class="scene-item {{currentScene === 'village' ? 'active' : ''}}" 
+                  bindtap="changeScene" data-scene="village">乡村</view>
+          </view>
+        </view>
+
+        <!-- 效果设置 -->
+        <view class="panel-section">
+          <view class="section-title">效果设置</view>
+          <view class="effect-item">
+            <text>下雪效果</text>
+            <switch checked="{{isSnowing}}" bindchange="toggleSnow"/>
+          </view>
+          <view class="effect-item">
+            <text>镜头跟随</text>
+            <switch checked="{{cameraFollowing}}" bindchange="toggleCameraFollow"/>
+          </view>
+        </view>
+
+        <!-- 文字烟花 -->
+        <view class="panel-section">
+          <view class="section-title">文字烟花</view>
+          <input class="text-input" 
+                 placeholder="输入文字发射文字烟花" 
+                 value="{{customText}}" 
+                 maxlength="8"
+                 bindinput="setCustomText"/>
+          <view class="tip-text">最多输入8个字符</view>
+          <view class="tip-text">留空发射普通烟花</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 控制按钮组 -->
+    <view class="button-group">
+      <!-- 设置按钮 -->
+      <view class="control-button settings {{isPanelVisible ? 'active' : ''}}" bindtap="togglePanel">
+        <image 
+          src="./images/ui/settings.png" 
+          binderror="onImageError"
+          data-image="settings"
+          mode="aspectFit"
+        ></image>
+      </view>
+      
+      <!-- 暂停/播放按钮 -->
+      <view class="control-button pause" bindtap="togglePause">
+        <image 
+          src="{{isPaused ? './images/ui/play.png' : './images/ui/pause.png'}}"
+          binderror="onImageError"
+          data-image="{{isPaused ? 'play' : 'pause'}}"
+          mode="aspectFit"
+        ></image>
+      </view>
+      
+      <!-- 音量按钮 -->
+      <view class="control-button volume" bindtap="toggleMute">
+        <image 
+          src="{{isMuted ? './images/ui/mute.png' : './images/ui/volume.png'}}"
+          binderror="onImageError"
+          data-image="{{isMuted ? 'mute' : 'volume'}}"
+          mode="aspectFit"
+        ></image>
+      </view>
+      
+      <!-- 分享按钮 -->
+      <button class="control-button share" open-type="share">
+        <image 
+          src="./images/ui/share.png"
+          binderror="onImageError"
+          data-image="share"
+          mode="aspectFit"
+        ></image>
+      </button>
+    </view>
+
+    <!-- 音量滑块 -->
+    <view class="volume-slider {{isVolumeVisible ? 'visible' : ''}}">
+      <slider 
+        min="0" 
+        max="100" 
+        value="{{volumeValue}}" 
+        bindchange="onVolumeChange"
+        block-size="12"
+        activeColor="#07C160"
+        backgroundColor="rgba(255, 255, 255, 0.2)"
+      />
+    </view>
+
+    <!-- 添加测试元素 -->
+    <view class="test-overlay">
+      层级测试元素 z-index: 1000
+    </view>
   </view>
 </view>
