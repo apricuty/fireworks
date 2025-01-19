@@ -197,20 +197,13 @@ Page({
           fuseHeight: 100
         });
 
-        // 发射烟花
-        if (this.data.customText) {
-          // 发射文字烟花
-          this.fireworkSystem.launchTextFirework(this.data.customText, {
-            x: launchX,
-            y: launchY
-          });
-        } else {
-          // 发射普通烟花
-          this.fireworkSystem.launchFirework({
-            x: launchX,
-            color: this.getRandomColor()
-          });
-        }
+        // 修改这里：使用 handleFuseBurnout 来发射烟花
+        this.fireworkSystem.handleFuseBurnout(launchX, launchY);
+        
+        // 播放发射音效
+        this.audioManager.playLaunchSound();
+        // 播放呼啸音效
+        this.audioManager.playWhistleSound();
       }
     }, interval);
   },

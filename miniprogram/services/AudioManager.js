@@ -51,8 +51,12 @@ export default class AudioManager {
   }
 
   // 播放发射音效
-  playLaunchSound() {
-    this.playSound('launch');
+  async playLaunchSound() {
+    try {
+      await this.sounds.get('launch').play();
+    } catch (error) {
+      console.warn('Launch sound playback failed:', error);
+    }
   }
 
   // 播放爆炸音效
@@ -65,11 +69,11 @@ export default class AudioManager {
   }
 
   // 播放呼啸音效
-  playWhistleSound() {
-    const sound = this.sounds.get('whistle');
-    if (sound) {
-      sound.playbackRate = 1.0 + Math.random() * 0.4;
-      this.playSound('whistle');
+  async playWhistleSound() {
+    try {
+      await this.sounds.get('whistle').play();
+    } catch (error) {
+      console.warn('Whistle sound playback failed:', error);
     }
   }
 

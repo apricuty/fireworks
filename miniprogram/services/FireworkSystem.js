@@ -1,5 +1,5 @@
 import { Vector3 } from '../utils/math';
-import { Particle } from './Particle';
+import Particle from './Particle';
 import { ObjectPool } from '../utils/ObjectPool';
 
 export default class FireworkSystem {
@@ -7,6 +7,7 @@ export default class FireworkSystem {
     this.canvas = null;
     this.ctx = null;
     this.particles = [];
+    this.rockets = [];
     this.particlePool = new ObjectPool(Particle, 1000);
     this.camera = {
       position: new Vector3(0, 0, 100),
@@ -18,6 +19,9 @@ export default class FireworkSystem {
     this.fpsHistory = [];
     this.lastFrameTime = Date.now();
     this.performanceMode = 'high';
+    this.debugMode = true;
+    this.displayWidth = 0;
+    this.displayHeight = 0;
   }
 
   // 修改初始化渲染器方法
@@ -35,67 +39,84 @@ export default class FireworkSystem {
       return;
     }
 
-    // 获取设备信息
+    // 获取设备信息和DPR
     const info = wx.getSystemInfoSync();
     this.dpr = info.pixelRatio;
     
-    // 保存实际显示尺寸
+    // 保存实际显示尺寸（逻辑像素）
     this.displayWidth = info.windowWidth;
     this.displayHeight = info.windowHeight;
     
     // 设置画布的物理像素大小
-    try {
-      // 使用微信小程序的方式设置canvas尺寸
-      const query = wx.createSelectorQuery();
-      query.select('#fireworkCanvas')
-        .fields({ node: true, size: true })
-        .exec((res) => {
-          if (res[0]) {
-            const canvas = res[0].node;
-            canvas.width = this.displayWidth * this.dpr;
-            canvas.height = this.displayHeight * this.dpr;
-            
-            // 初始缩放以匹配DPR
-            this.ctx.scale(this.dpr, this.dpr);
-          }
-        });
-    } catch (error) {
-      console.error('Failed to set canvas size:', error);
-    }
+    canvas.width = this.displayWidth * this.dpr;
+    canvas.height = this.displayHeight * this.dpr;
+    
+    // 打印画布尺寸信息
+    console.log('[Firework Debug] Canvas dimensions:', {
+      displayWidth: this.displayWidth,
+      displayHeight: this.displayHeight,
+      canvasWidth: canvas.width,
+      canvasHeight: canvas.height,
+      dpr: this.dpr
+    });
+    
+    // 缩放上下文以匹配DPR
+    this.ctx.scale(this.dpr, this.dpr);
   }
 
   // 发射烟花
   launchFirework(options = {}) {
-    const firework = this.particlePool.get();
-    const startX = options.x || this.displayWidth / 2;
-    const startY = options.y || this.displayHeight;
-    const targetX = options.targetX || startX;
-    const targetY = options.targetY || startY - 300;
+    console.log('[Firework Debug] launchFirework called with options:', {
+      x: options.x,
+      y: options.y,
+      displayWidth: this.displayWidth,
+      displayHeight: this.displayHeight
+    });
+
+    // 使用与测试粒子相同的创建方式
+    const rocket = new Particle(options.x, options.y, true);
+    rocket.color = [2, 2, 2, 2];
     
-    // 计算发射速度
-    const angle = Math.atan2(targetY - startY, targetX - startX);
-    const speed = 15 + Math.random() * 5;
+    // 使用与测试粒子相同的速度和加速度
+    rocket.velocity = new Vector3(
+      Math.random() * 2 - 1,  // 小范围随机水平速度
+      -25,                    // 固定向上速度
+      0
+    );
     
-    // 播放发射音效
+    rocket.acceleration = new Vector3(0, 1.5, 0); // 重力加速度
+    
+    // 添加详细的调试信息
+    console.log('[Firework Debug] Created firework rocket:', {
+      position: rocket.position.toString(),
+      velocity: rocket.velocity.toString(),
+      acceleration: rocket.acceleration.toString(),
+      size: rocket.size,
+      alpha: rocket.alpha,
+      phase: rocket.phase,
+      isRocket: rocket.isRocket,
+      arrayType: 'rockets',
+      rocketsLength: this.rockets.length
+    });
+    
+    // 存入rockets数组
+    this.rockets.push(rocket);
+    
+    // 添加可视化标记
+    this.ctx.save();
+    this.ctx.fillStyle = 'rgba(255, 0, 0, 0.8)';
+    this.ctx.beginPath();
+    this.ctx.arc(options.x, options.y, 8, 0, Math.PI * 2);
+    this.ctx.fill();
+    this.ctx.restore();
+
+    // 播放音效
     if (this.audioManager) {
       this.audioManager.playLaunchSound();
       setTimeout(() => {
         this.audioManager.playWhistleSound();
       }, 200);
     }
-
-    firework.init({
-      position: new Vector3(startX, startY, 0),
-      velocity: new Vector3(
-        Math.cos(angle) * speed,
-        Math.sin(angle) * speed,
-        0
-      ),
-      color: options.color || [1, 1, 1, 1],
-      size: options.size || 4,
-      text: options.text || null
-    });
-    this.particles.push(firework);
   }
 
   // 创建爆炸粒子
@@ -170,32 +191,28 @@ export default class FireworkSystem {
 
   // 更新粒子
   update() {
-    const dt = 1/60; // 假设60fps
-    
+    const now = Date.now();
+    const dt = Math.min((now - this.lastFrameTime) / 1000, 0.1);
+    this.lastFrameTime = now;
+
+    // 更新火箭
+    for (let i = this.rockets.length - 1; i >= 0; i--) {
+      const rocket = this.rockets[i];
+      const status = rocket.update(dt);
+
+      if (rocket.phase === 'explode' || !status) {
+        if (rocket.phase === 'explode') {
+          this.explode(rocket.position.x, rocket.position.y);
+        }
+        this.rockets.splice(i, 1);
+      }
+    }
+
+    // 更新爆炸粒子
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const particle = this.particles[i];
-      particle.update(dt);
-
-      // 检查是否需要爆炸
-      if (particle.phase === 'launch') {
-        // 普通烟花到达最高点爆炸
-        if (!particle.text && particle.velocity.y >= 0) {
-          this.createExplosionParticles(particle.position, particle.color);
-          this.particlePool.release(particle);
-          this.particles.splice(i, 1);
-          continue;
-        }
-        // 文字烟花到达目标位置爆炸
-        else if (particle.text && particle.velocity.length() < 1) {
-          this.createExplosionParticles(particle.position, particle.color, particle.text);
-          this.particlePool.release(particle);
-          this.particles.splice(i, 1);
-          continue;
-        }
-      }
-
-      if (particle.isDead()) {
-        this.particlePool.release(particle);
+      const status = particle.update(dt);
+      if (!status) {
         this.particles.splice(i, 1);
       }
     }
@@ -216,76 +233,41 @@ export default class FireworkSystem {
   // 渲染场景
   render() {
     if (!this.ctx || !this.canvas) {
-      console.error('Canvas context not initialized');
-      this.recover().then(success => {
-        if (!success) {
-          wx.showToast({
-            title: '渲染错误',
-            icon: 'none'
-          });
-        }
-      });
+      console.error('[Firework Error] Canvas context not initialized');
       return;
     }
 
-    // 只在有粒子时才进行渲染
-    if (this.particles.length > 0) {
-      // 保存当前上下文状态
+    // 清除画布（使用逻辑像素尺寸）
+    this.ctx.clearRect(0, 0, this.displayWidth, this.displayHeight);
+    
+    // 设置合成模式
+    this.ctx.globalCompositeOperation = 'lighter';
+
+    // 渲染所有粒子
+    [...this.rockets, ...this.particles].forEach(particle => {
       this.ctx.save();
-
-      // 清除画布
-      this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-
-      // 设置合成模式为叠加
-      this.ctx.globalCompositeOperation = 'lighter';
-
-      // 绘制粒子和文字
-      this.particles.forEach(particle => {
-        // 绘制拖尾
-        if (particle.trail.length > 1) {
-          this.ctx.beginPath();
-          this.ctx.moveTo(particle.trail[0].x, particle.trail[0].y);
-          
-          for (let i = 1; i < particle.trail.length; i++) {
-            this.ctx.lineTo(particle.trail[i].x, particle.trail[i].y);
-          }
-          
-          this.ctx.strokeStyle = `rgba(${particle.color[0] * 255}, ${
-            particle.color[1] * 255
-          }, ${particle.color[2] * 255}, ${particle.color[3] * 0.5})`;
-          this.ctx.lineWidth = particle.size * 0.5;
-          this.ctx.stroke();
-        }
-
-        if (particle.text) {
-          // 渲染文字
-          this.ctx.font = `${particle.size}px Arial`;
-          this.ctx.fillStyle = `rgba(${particle.color[0] * 255}, ${
-            particle.color[1] * 255
-          }, ${particle.color[2] * 255}, ${particle.color[3]})`;
-          this.ctx.textAlign = 'center';
-          this.ctx.textBaseline = 'middle';
-          this.ctx.fillText(particle.text, particle.position.x, particle.position.y);
-        } else {
-          // 渲染普通粒子
-          this.ctx.beginPath();
-          this.ctx.arc(
-            particle.position.x,
-            particle.position.y,
-            particle.size,
-            0,
-            Math.PI * 2
-          );
-          this.ctx.fillStyle = `rgba(${particle.color[0] * 255}, ${
-            particle.color[1] * 255
-          }, ${particle.color[2] * 255}, ${particle.color[3]})`;
-          this.ctx.fill();
-        }
-      });
-
-      // 恢复上下文状态
+      
+      // 使用粒子的实际颜色
+      const [r, g, b, a] = particle.color;
+      this.ctx.fillStyle = `rgba(${r * 255}, ${g * 255}, ${b * 255}, ${particle.alpha})`;
+      
+      // 画粒子主体
+      this.ctx.beginPath();
+      this.ctx.arc(
+        particle.position.x,
+        particle.position.y,
+        particle.size,
+        0,
+        Math.PI * 2
+      );
+      
+      // 添加发光效果
+      this.ctx.shadowBlur = particle.size * 2;
+      this.ctx.shadowColor = `rgba(${r * 255}, ${g * 255}, ${b * 255}, ${particle.alpha})`;
+      
+      this.ctx.fill();
       this.ctx.restore();
-    }
+    });
 
     this.monitorPerformance();
   }
@@ -411,6 +393,87 @@ export default class FireworkSystem {
     } catch (error) {
       console.error('Failed to recover:', error);
       return false;
+    }
+  }
+
+  // 修改handleFuseBurnout方法，使用launchFirework
+  handleFuseBurnout(x, y) {
+    // 创建烟花粒子（从底部发射）
+    const startY = this.displayHeight - 50; 
+    const startX = Math.min(Math.max(x, 50), this.displayWidth - 50);
+    
+    const rocket = new Particle(startX, startY, true);
+    rocket.color = [0, 1, 0, 1]; // 使用绿色 [R, G, B, A]
+    
+    // 设置烟花粒子的速度和加速度
+    rocket.velocity = new Vector3(
+      Math.random() * 2 - 1,
+      -25,
+      0
+    );
+    rocket.acceleration = new Vector3(0, 1.5, 0);
+    
+    this.rockets.push(rocket);
+    
+    // 修改音效播放逻辑
+    if (this.audioManager) {
+      try {
+        // 使用 Promise 处理音频播放
+        this.audioManager.playLaunchSound()
+          .catch(error => {
+            console.warn('Failed to play launch sound:', error);
+          });
+        
+        // 延迟播放啸声
+        setTimeout(() => {
+          this.audioManager.playWhistleSound()
+            .catch(error => {
+              console.warn('Failed to play whistle sound:', error);
+            });
+        }, 200);
+      } catch (error) {
+        console.warn('Audio playback error:', error);
+      }
+    }
+  }
+
+  // 修改爆炸方法，确保使用正确的坐标系统
+  explode(x, y) {
+    console.log('[Firework Debug] Creating explosion at:', {
+      x: x.toFixed(2),
+      y: y.toFixed(2),
+      displayWidth: this.displayWidth,
+      displayHeight: this.displayHeight
+    });
+
+    const particleCount = 80;
+    const baseHue = Math.random() * 360;
+    
+    for (let i = 0; i < particleCount; i++) {
+      const angle = (i / particleCount) * Math.PI * 2;
+      const speed = 2 + Math.random() * 3;
+      const hue = (baseHue + Math.random() * 30) % 360;
+      
+      // HSL转RGB
+      const rgb = this.hslToRgb(hue / 360, 0.8, 0.5);
+      
+      const particle = new Particle(x, y, false);
+      particle.velocity = new Vector3(
+        Math.cos(angle) * speed,
+        Math.sin(angle) * speed,
+        0
+      );
+      particle.color = [...rgb, 1];
+      
+      // 打印爆炸粒子的初始状态
+      console.log('[Firework Debug] Explosion particle created:', {
+        position: particle.position.toString(),
+        velocity: particle.velocity.toString(),
+        size: particle.size,
+        alpha: particle.alpha
+      });
+      
+      this.particles.push(particle);
     }
   }
 } 
