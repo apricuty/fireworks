@@ -18,7 +18,9 @@ Page({
     isFuseBurning: false,  // 引线是否正在燃烧
     isMuted: false,
     isVolumeVisible: false,
-    volumeValue: 80
+    volumeValue: 80,
+    isAutoLaunching: false,
+    isInitialized: false  // 添加初始化状态标志
   },
 
   // 系统实例
@@ -79,10 +81,22 @@ Page({
       // 初始化烟花系统
       await this.fireworkSystem.initRenderer(effectCanvas);
       
+      // 添加调试日志
+      console.log('[Canvas Debug] Canvas dimensions:', {
+        width: effectCanvas.width,
+        height: effectCanvas.height,
+        style: effectCanvas.style
+      });
+      
       // 初始化场景管理器
       await this.sceneManager.initCanvas(snowCanvas);
       
       console.log('[Init Debug] Canvas initialization completed');
+      
+      // 设置初始化完成标志
+      this.setData({
+        isInitialized: true
+      });
       
       // 开始渲染循环
       this.startRenderLoop();
@@ -156,7 +170,7 @@ Page({
   // 点击引线
   onTapFuse() {
     if (this.data.isFuseBurning || this.data.isPaused) return;
-
+    
     this.setData({
       isFuseBurning: true
     });
@@ -170,6 +184,16 @@ Page({
 
   // 引线动画
   startFuseAnimation() {
+    // 检查系统是否已初始化
+    if (!this.data.isInitialized || !this.fireworkSystem || !this.fireworkSystem.canvas) {
+      console.error('[Animation Debug] System not initialized');
+      wx.showToast({
+        title: '系统初始化中，请稍后再试',
+        icon: 'none'
+      });
+      return;
+    }
+
     const duration = 4000;
     const interval = 50;
     const steps = duration / interval;
@@ -197,13 +221,8 @@ Page({
           fuseHeight: 100
         });
 
-        // 修改这里：使用 handleFuseBurnout 来发射烟花
-        this.fireworkSystem.handleFuseBurnout(launchX, launchY);
-        
-        // 播放发射音效
-        this.audioManager.playLaunchSound();
-        // 播放呼啸音效
-        this.audioManager.playWhistleSound();
+        // 开始自动发射
+        this.startAutoLaunch();
       }
     }, interval);
   },
@@ -317,6 +336,8 @@ Page({
     if (this.animationFrame) {
       clearTimeout(this.animationFrame);
     }
+    // 添加自动发射的清理
+    this.stopAutoLaunch();
     this.audioManager.dispose();
     this.fireworkSystem.dispose();
   },
@@ -336,5 +357,59 @@ Page({
       timeStamp: e.timeStamp,
       isPanelVisible: this.data.isPanelVisible
     });
+  },
+
+  // 添加自动发射控制方法
+  startAutoLaunch() {
+    if (this.data.isAutoLaunching) return;
+    
+    this.setData({
+      isAutoLaunching: true
+    });
+    
+    const launchNext = () => {
+      if (!this.data.isAutoLaunching) return;
+      
+      this.launchFirework();
+      
+      // 随机1-3秒的间隔
+      const delay = 1000 + Math.random() * 2000;
+      this.autoLaunchTimer = setTimeout(launchNext, delay);
+    };
+    
+    launchNext();
+  },
+  
+  stopAutoLaunch() {
+    if (this.autoLaunchTimer) {
+      clearInterval(this.autoLaunchTimer);
+    }
+    this.setData({
+      isAutoLaunching: false
+    });
+  },
+
+  // 修改launchFirework方法
+  launchFirework() {
+    if (!this.fireworkSystem || this.data.isPaused) return;
+    
+    // 扩大随机范围，使用0.1-0.9的范围
+    const launchX = this.fireworkSystem.canvas.width * (0.1 + Math.random() * 0.8);
+    const launchY = this.fireworkSystem.canvas.height;
+    
+    // 添加调试日志
+    console.log('[Firework Debug] Launch position:', {
+      canvasWidth: this.fireworkSystem.canvas.width,
+      canvasHeight: this.fireworkSystem.canvas.height,
+      launchX,
+      launchY
+    });
+    
+    // 调用烟花系统的发射方法
+    this.fireworkSystem.handleFuseBurnout(launchX, launchY);
+    
+    // 播放音效
+    this.audioManager.playLaunchSound();
+    this.audioManager.playWhistleSound();
   }
 });
