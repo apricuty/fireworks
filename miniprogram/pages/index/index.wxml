@@ -30,7 +30,7 @@
           src="./images/fuse.png"
           binderror="onImageError"
           data-image="fuse"
-          style="height: {{fuseHeight}}%"
+          style="height: {{fuseHeight + '%'}}"
         ></image>
       </view>
     </view>
@@ -90,13 +90,13 @@
     <!-- 控制按钮组 -->
     <view class="button-group">
       <!-- 设置按钮 -->
-      <view class="control-button settings {{isPanelVisible ? 'active' : ''}}" bindtap="togglePanel">
-        <image 
-          src="./images/ui/settings.png" 
-          binderror="onImageError"
-          data-image="settings"
-          mode="aspectFit"
-        ></image>
+      <view class="control-button settings {{isPanelVisible ? 'active' : ''}}" 
+            bindtap="togglePanel"
+            data-role="settings">
+        <image src="./images/ui/settings.png" 
+               mode="aspectFit"
+               data-role="settings">
+        </image>
       </view>
       
       <!-- 暂停/播放按钮 -->

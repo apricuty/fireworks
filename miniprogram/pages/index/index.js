@@ -31,6 +31,24 @@ Page({
     this.initSystems();
     // 设置触摸事件
     this.initTouchEvents();
+    
+    console.log('[Init Debug] Adding event listeners');
+    // 监听所有tap事件用于调试
+    this.tapDebugListener = (e) => {
+      console.log('[Tap Debug] Tap event captured:', {
+        target: e.target,
+        currentTarget: e.currentTarget,
+        dataset: e.target.dataset,
+        timeStamp: e.timeStamp
+      });
+    };
+    
+    wx.createSelectorQuery()
+      .select('.control-button.settings')
+      .node(res => {
+        console.log('[Init Debug] Settings button found:', res);
+      })
+      .exec();
   },
 
   async onReady() {
@@ -93,30 +111,18 @@ Page({
   initTouchEvents() {
     this.touchStartX = 0;
     this.touchStartY = 0;
-    this.panelWidth = 300; // 面板宽度的一半
+    this.panelWidth = 300;
   },
 
   // 添加触摸事件处理
   onTouchStart(e) {
+    // 仅记录触摸位置，暂时不做任何处理
     this.touchStartX = e.touches[0].clientX;
     this.touchStartY = e.touches[0].clientY;
   },
 
   onTouchMove(e) {
-    const deltaX = e.touches[0].clientX - this.touchStartX;
-    const deltaY = e.touches[0].clientY - this.touchStartY;
-
-    // 如果横向滑动距离大于纵向，且幅度足够大
-    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 30) {
-      // 从右向左滑动，打开面板
-      if (deltaX < 0 && !this.data.isPanelVisible) {
-        this.setData({ isPanelVisible: true });
-      }
-      // 从左向右滑动，关闭面板
-      else if (deltaX > 0 && this.data.isPanelVisible) {
-        this.setData({ isPanelVisible: false });
-      }
-    }
+    // 暂时移除所有处理逻辑
   },
 
   // 开始渲染循环
@@ -217,10 +223,24 @@ Page({
   },
 
   // 切换设置面板
-  togglePanel() {
-    this.setData({
-      isPanelVisible: !this.data.isPanelVisible
+  togglePanel(e) {
+    console.log('[Panel Debug] togglePanel triggered:', {
+      event: e,
+      currentState: this.data.isPanelVisible,
+      eventType: e ? e.type : 'none',
+      target: e ? e.target : 'none',
+      dataset: e && e.target ? e.target.dataset : 'none'
     });
+
+    // 简化条件判断
+    if (e && e.target && e.target.dataset && e.target.dataset.role === 'settings') {
+      console.log('[Panel Debug] Settings button clicked, toggling panel');
+      this.setData({
+        isPanelVisible: !this.data.isPanelVisible
+      });
+    } else {
+      console.log('[Panel Debug] Panel toggle conditions not met');
+    }
   },
 
   // 切换暂停状态
@@ -311,5 +331,17 @@ Page({
   onImageError(e) {
     const imageName = e.currentTarget.dataset.image;
     console.error(`[Debug UI] Image load error for ${imageName}:`, e.detail);
+  },
+
+  // 添加点击事件处理（如果有的话）
+  onTap(e) {
+    console.log('[Tap Debug] onTap triggered:', {
+      x: e.detail.x,
+      y: e.detail.y,
+      target: e.target,
+      currentTarget: e.currentTarget,
+      timeStamp: e.timeStamp,
+      isPanelVisible: this.data.isPanelVisible
+    });
   }
 });

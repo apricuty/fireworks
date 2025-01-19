@@ -545,19 +545,6 @@ page {
 }
 
 /* 移除测试覆盖层样式 */
-- /* 添加一个测试元素在最上层 */
-- .test-overlay {
--   position: fixed;
--   top: 20rpx;
--   left: 20rpx;
--   padding: 10rpx;
--   background-color: rgba(255, 255, 0, 0.5);
--   z-index: 1000;
--   pointer-events: none;
--   font-size: 24rpx;
--   color: white;
-- }
-
 /* 移除音量滑块相关样式 */
 .volume-slider {
   display: none;  /* 隐藏音量滑块 */
