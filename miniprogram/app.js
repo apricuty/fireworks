@@ -1,5 +1,8 @@
 App({
   onLaunch() {
+    // 初始化 fireworkSystem 为 null
+    this.fireworkSystem = null;
+    
     // 检查设备性能
     const systemInfo = wx.getSystemInfoSync();
     if (systemInfo.platform === 'devtools') {

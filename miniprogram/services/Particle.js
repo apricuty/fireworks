@@ -30,6 +30,10 @@ export class Particle {
     
     // 用于控制日志输出频率
     this.lastLogTime = 0;
+    
+    // 添加发射时间记录
+    this.launchTime = Date.now();
+    this.explodeTime = null;
   }
 
   update(dt = 1/60) {
@@ -50,16 +54,18 @@ export class Particle {
     // 每500ms输出一次日志
     const now = Date.now();
     if (now - this.lastLogTime >= 500) {
+      const currentHeight = this.startY - this.position.y;
+      const heightPercent = (currentHeight / this.displayHeight) * 100;
+      const timeSinceLaunch = (now - this.launchTime) / 1000;
+      
       console.log('[Particle Debug] Position update:', {
         position: this.position.toString(),
         velocity: this.velocity.toString(),
         acceleration: this.acceleration.toString(),
-        deltaPosition: {
-          x: (this.position.x - oldPosition.x).toFixed(2),
-          y: (this.position.y - oldPosition.y).toFixed(2)
-        },
-        dt: dt.toFixed(3),
-        life: this.life.toFixed(3),
+        currentHeight: `${currentHeight.toFixed(2)}px`,
+        heightPercent: `${heightPercent.toFixed(2)}%`,
+        timeSinceLaunch: `${timeSinceLaunch.toFixed(2)}s`,
+        targetHeight: `${this.targetHeight}px`,
         phase: this.phase
       });
       this.lastLogTime = now;
@@ -71,13 +77,35 @@ export class Particle {
     // 更新透明度
     this.alpha = this.life;
     
-    // 火箭粒子达到最高点时爆炸
-    if (this.isRocket && this.velocity.y >= 0) {
-      console.log('[Particle Debug] Rocket reached apex, exploding at:', {
-        position: this.position.toString(),
-        velocity: this.velocity.toString()
-      });
-      this.phase = 'explode';
+    // 火箭粒子达到目标高度时爆炸
+    if (this.isRocket) {
+        const currentHeight = this.startY - this.position.y;
+        const heightPercent = (currentHeight / this.displayHeight) * 100;
+        
+        // 检查是否达到目标高度或开始下落
+        if (this.position.y <= this.targetHeight || this.velocity.y >= 0) {
+            this.explodeTime = Date.now();
+            const flightTime = (this.explodeTime - this.launchTime) / 1000;
+            
+            console.log('[Particle Debug] Rocket reached target, exploding at:', {
+                position: this.position.toString(),
+                velocity: this.velocity.toString(),
+                flightTime: `${flightTime.toFixed(2)}s`,
+                finalHeight: `${currentHeight.toFixed(2)}px`,
+                heightPercent: `${heightPercent.toFixed(2)}%`,
+                targetHeight: `${this.targetHeight}px`,
+                displayHeight: `${this.displayHeight}px`,
+                startY: this.startY,
+                distanceFromTarget: `${Math.abs(this.position.y - this.targetHeight).toFixed(2)}px`
+            });
+            
+            this.phase = 'explode';
+            
+            const app = getApp();
+            if (app.fireworkSystem && app.fireworkSystem.audioManager) {
+                app.fireworkSystem.audioManager.playExplodeSound();
+            }
+        }
     }
     
     return !this.isDead();

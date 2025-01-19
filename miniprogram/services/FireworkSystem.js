@@ -22,6 +22,10 @@ export default class FireworkSystem {
     this.debugMode = true;
     this.displayWidth = 0;
     this.displayHeight = 0;
+    
+    // 修改全局引用方式
+    const app = getApp();
+    app.fireworkSystem = this;
   }
 
   // 修改初始化渲染器方法
@@ -281,6 +285,9 @@ export default class FireworkSystem {
   dispose() {
     this.particlePool.releaseAll();
     this.particles = [];
+    // 清理全局引用
+    const app = getApp();
+    app.fireworkSystem = null;
   }
 
   // 设置音效管理器
@@ -398,39 +405,62 @@ export default class FireworkSystem {
 
   // 修改handleFuseBurnout方法，使用launchFirework
   handleFuseBurnout(x, y) {
-    // 创建烟花粒子（从底部发射）
     const startY = this.displayHeight - 50; 
     const startX = Math.min(Math.max(x, 50), this.displayWidth - 50);
     
     const rocket = new Particle(startX, startY, true);
-    rocket.color = [0, 1, 0, 1]; // 使用绿色 [R, G, B, A]
+    rocket.color = [0, 1, 0, 1];
     
-    // 设置烟花粒子的速度和加速度
+    // 重新计算物理参数
+    const time = 4; // 目标时间4秒
+    const gravity = 2.5; // 重力加速度
+    
+    // 计算需要上升的实际距离
+    // 目标是上升到屏幕3/4的位置
+    const riseDistance = this.displayHeight * 0.75;
+    
+    // 使用正确的物理公式：
+    // s = v0t - (1/2)at²
+    // 其中：
+    // s = 上升距离
+    // t = 上升时间
+    // a = 重力加速度
+    // 解出初速度 v0：
+    // v0 = (s + (1/2)at²)/t
+    const v0 = (riseDistance + (0.5 * gravity * time * time)) / time;
+    
     rocket.velocity = new Vector3(
       Math.random() * 2 - 1,
-      -25,
+      -v0,  // 向上为负
       0
     );
-    rocket.acceleration = new Vector3(0, 1.5, 0);
+    rocket.acceleration = new Vector3(0, gravity, 0);
+    
+    // 传递参数给粒子
+    rocket.displayHeight = this.displayHeight;
+    rocket.targetHeight = startY - riseDistance; // 目标高度是从起始位置向上的位置
+    rocket.startY = startY;
+    
+    console.log('[Firework Debug] Launching rocket:', {
+      startY: startY,
+      currentY: rocket.position.y,
+      riseDistance: riseDistance,
+      targetY: rocket.targetHeight,
+      displayHeight: this.displayHeight,
+      initialVelocity: -v0,
+      acceleration: gravity,
+      expectedTime: time,
+      launchTime: new Date().toISOString()
+    });
     
     this.rockets.push(rocket);
     
-    // 修改音效播放逻辑
     if (this.audioManager) {
       try {
-        // 使用 Promise 处理音频播放
         this.audioManager.playLaunchSound()
           .catch(error => {
             console.warn('Failed to play launch sound:', error);
           });
-        
-        // 延迟播放啸声
-        setTimeout(() => {
-          this.audioManager.playWhistleSound()
-            .catch(error => {
-              console.warn('Failed to play whistle sound:', error);
-            });
-        }, 200);
       } catch (error) {
         console.warn('Audio playback error:', error);
       }
