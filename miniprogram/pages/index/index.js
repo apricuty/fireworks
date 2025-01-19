@@ -394,7 +394,7 @@ Page({
     if (!this.fireworkSystem || this.data.isPaused) return;
     
     // 扩大随机范围，使用0.1-0.9的范围
-    const launchX = this.fireworkSystem.canvas.width * (0.1 + Math.random() * 0.8);
+    const launchX = this.fireworkSystem.canvas.width * (0.1 + Math.random() * 0.8) % 340;
     const launchY = this.fireworkSystem.canvas.height;
     
     // 添加调试日志

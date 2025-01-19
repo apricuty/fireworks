@@ -55,27 +55,12 @@ export default class FireworkSystem {
     canvas.width = this.displayWidth * this.dpr;
     canvas.height = this.displayHeight * this.dpr;
     
-    // 打印画布尺寸信息
-    console.log('[Firework Debug] Canvas dimensions:', {
-      displayWidth: this.displayWidth,
-      displayHeight: this.displayHeight,
-      canvasWidth: canvas.width,
-      canvasHeight: canvas.height,
-      dpr: this.dpr
-    });
-    
     // 缩放上下文以匹配DPR
     this.ctx.scale(this.dpr, this.dpr);
   }
 
   // 发射烟花
   launchFirework(options = {}) {
-    console.log('[Firework Debug] launchFirework called with options:', {
-      x: options.x,
-      y: options.y,
-      displayWidth: this.displayWidth,
-      displayHeight: this.displayHeight
-    });
 
     // 使用与测试粒子相同的创建方式
     const rocket = new Particle(options.x, options.y, true);
@@ -90,18 +75,6 @@ export default class FireworkSystem {
     
     rocket.acceleration = new Vector3(0, 1.5, 0); // 重力加速度
     
-    // 添加详细的调试信息
-    console.log('[Firework Debug] Created firework rocket:', {
-      position: rocket.position.toString(),
-      velocity: rocket.velocity.toString(),
-      acceleration: rocket.acceleration.toString(),
-      size: rocket.size,
-      alpha: rocket.alpha,
-      phase: rocket.phase,
-      isRocket: rocket.isRocket,
-      arrayType: 'rockets',
-      rocketsLength: this.rockets.length
-    });
     
     // 存入rockets数组
     this.rockets.push(rocket);
@@ -403,55 +376,63 @@ export default class FireworkSystem {
     }
   }
 
-  // 修改handleFuseBurnout方法，使用launchFirework
+  // handleFuseBurnout方法
   handleFuseBurnout(x, y) {
-    const startY = this.displayHeight - 50; 
-    const startX = Math.min(Math.max(x, 50), this.displayWidth - 50);
+    // 设置安全边距
+    const padding = 50;
     
+    // 保持原始x坐标，只进行边界检查
+    let startX = Math.min(Math.max(x, padding), this.displayWidth - padding);
+    
+    // 添加小范围随机偏移（±20像素）使发射位置更自然
+    startX += (Math.random() - 0.5) * 40;
+    
+    // 确保偏移后仍在安全范围内
+    startX = Math.min(Math.max(startX, padding), this.displayWidth - padding);
+    
+    const startY = this.displayHeight - padding;
+    
+    // 调试日志
+    console.log('[Firework Debug] Launch position:', {
+      canvasWidth: this.displayWidth,
+      canvasHeight: this.displayHeight,
+      originalX: x,
+      startX,
+      startY,
+      randomOffset: startX - x
+    });
+
     const rocket = new Particle(startX, startY, true);
     rocket.color = [0, 1, 0, 1];
     
-    // 重新计算物理参数
-    const time = 4; // 目标时间4秒
-    const gravity = 2.5; // 重力加速度
+    // 优化物理参数
+    const time = 3.5 + Math.random(); // 3.5-4.5秒随机时间
+    const gravity = 2.3 + Math.random() * 0.4; // 2.3-2.7的随机重力
     
-    // 计算需要上升的实际距离
-    // 目标是上升到屏幕3/4的位置
-    const riseDistance = this.displayHeight * 0.75;
+    // 随机上升高度（屏幕高度的65%-85%）
+    const heightPercent = 0.65 + Math.random() * 0.2;
+    const riseDistance = this.displayHeight * heightPercent;
     
-    // 使用正确的物理公式：
-    // s = v0t - (1/2)at²
-    // 其中：
-    // s = 上升距离
-    // t = 上升时间
-    // a = 重力加速度
-    // 解出初速度 v0：
-    // v0 = (s + (1/2)at²)/t
+    // 计算初速度
     const v0 = (riseDistance + (0.5 * gravity * time * time)) / time;
     
+    // 水平速度根据发射位置动态调整
+    // 靠近边缘时增加向中心的偏移趋势
+    const centerX = this.displayWidth / 2;
+    const distanceFromCenter = (startX - centerX) / centerX; // -1到1之间
+    const horizontalSpeed = (Math.random() - 0.5 - distanceFromCenter * 0.3) * 3;
+    
     rocket.velocity = new Vector3(
-      Math.random() * 2 - 1,
+      horizontalSpeed,
       -v0,  // 向上为负
       0
     );
     rocket.acceleration = new Vector3(0, gravity, 0);
     
-    // 传递参数给粒子
+    // 设置目标参数
     rocket.displayHeight = this.displayHeight;
-    rocket.targetHeight = startY - riseDistance; // 目标高度是从起始位置向上的位置
+    rocket.targetHeight = startY - riseDistance;
     rocket.startY = startY;
-    
-    console.log('[Firework Debug] Launching rocket:', {
-      startY: startY,
-      currentY: rocket.position.y,
-      riseDistance: riseDistance,
-      targetY: rocket.targetHeight,
-      displayHeight: this.displayHeight,
-      initialVelocity: -v0,
-      acceleration: gravity,
-      expectedTime: time,
-      launchTime: new Date().toISOString()
-    });
     
     this.rockets.push(rocket);
     
@@ -469,12 +450,6 @@ export default class FireworkSystem {
 
   // 修改爆炸方法，确保使用正确的坐标系统
   explode(x, y) {
-    console.log('[Firework Debug] Creating explosion at:', {
-      x: x.toFixed(2),
-      y: y.toFixed(2),
-      displayWidth: this.displayWidth,
-      displayHeight: this.displayHeight
-    });
 
     const particleCount = 80;
     const baseHue = Math.random() * 360;
@@ -494,14 +469,6 @@ export default class FireworkSystem {
         0
       );
       particle.color = [...rgb, 1];
-      
-      // 打印爆炸粒子的初始状态
-      console.log('[Firework Debug] Explosion particle created:', {
-        position: particle.position.toString(),
-        velocity: particle.velocity.toString(),
-        size: particle.size,
-        alpha: particle.alpha
-      });
       
       this.particles.push(particle);
     }

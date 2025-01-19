@@ -58,16 +58,6 @@ export class Particle {
       const heightPercent = (currentHeight / this.displayHeight) * 100;
       const timeSinceLaunch = (now - this.launchTime) / 1000;
       
-      console.log('[Particle Debug] Position update:', {
-        position: this.position.toString(),
-        velocity: this.velocity.toString(),
-        acceleration: this.acceleration.toString(),
-        currentHeight: `${currentHeight.toFixed(2)}px`,
-        heightPercent: `${heightPercent.toFixed(2)}%`,
-        timeSinceLaunch: `${timeSinceLaunch.toFixed(2)}s`,
-        targetHeight: `${this.targetHeight}px`,
-        phase: this.phase
-      });
       this.lastLogTime = now;
     }
     
@@ -86,18 +76,6 @@ export class Particle {
         if (this.position.y <= this.targetHeight || this.velocity.y >= 0) {
             this.explodeTime = Date.now();
             const flightTime = (this.explodeTime - this.launchTime) / 1000;
-            
-            console.log('[Particle Debug] Rocket reached target, exploding at:', {
-                position: this.position.toString(),
-                velocity: this.velocity.toString(),
-                flightTime: `${flightTime.toFixed(2)}s`,
-                finalHeight: `${currentHeight.toFixed(2)}px`,
-                heightPercent: `${heightPercent.toFixed(2)}%`,
-                targetHeight: `${this.targetHeight}px`,
-                displayHeight: `${this.displayHeight}px`,
-                startY: this.startY,
-                distanceFromTarget: `${Math.abs(this.position.y - this.targetHeight).toFixed(2)}px`
-            });
             
             this.phase = 'explode';
             
