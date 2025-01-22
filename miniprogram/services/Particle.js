@@ -5,24 +5,24 @@ export class Particle {
     // 位置属性
     this.position = new Vector3(x, y, 0);
     
-    // 速度属性 - 向上为负方向，增加初始速度
+    // 速度属性 - 恢复原来的速度值
     this.velocity = new Vector3(
-      isRocket ? (Math.random() * 2 - 1) : (Math.random() * 6 - 3), // 添加一点水平随机速度
-      isRocket ? -25 : (Math.random() * 6 - 3), // 增加上升速度
+      isRocket ? (Math.random() * 2 - 1) : (Math.random() * 8 - 4),
+      isRocket ? -25 : (Math.random() * 8 - 4),  // 恢复为-25的初始速度
       0
     );
     
-    // 重力加速度 - 向下为正方向
-    this.acceleration = new Vector3(0, 1.5, 0); // 增加重力效果
+    // 重力加速度 - 恢复原来的加速度
+    this.acceleration = new Vector3(0, isRocket ? 1.5 : 0.8, 0);  // 火箭重力恢复为1.5
     
     // 粒子属性
-    this.size = isRocket ? 5 : 2; // 增大火箭尺寸
+    this.size = isRocket ? 3 : 1.5;
     this.alpha = 1;
     this.color = [1, 1, 1, 1];
     
-    // 生命周期 - 大幅延长火箭寿命
+    // 生命周期
     this.life = 1;
-    this.decay = isRocket ? 0.0005 : 0.02; // 显著减小火箭衰减速度
+    this.decay = isRocket ? 0.0005 : 0.015;
     this.isRocket = isRocket;
     
     // 阶段
@@ -34,6 +34,14 @@ export class Particle {
     // 添加发射时间记录
     this.launchTime = Date.now();
     this.explodeTime = null;
+    
+    this.trail = [];
+    this.maxTrailLength = isRocket ? 15 : 8;
+    this.trailUpdateInterval = isRocket ? 16 : 24;
+    this.lastTrailUpdate = 0;
+    
+    this.tailParticles = [];
+    this.tailLength = 5;
   }
 
   update(dt = 1/60) {
@@ -61,6 +69,22 @@ export class Particle {
       this.lastLogTime = now;
     }
     
+    // 计算速度相关的衰减
+    const speed = Math.sqrt(
+      this.velocity.x * this.velocity.x + 
+      this.velocity.y * this.velocity.y
+    );
+    
+    // 只对非火箭粒子应用速度衰减
+    if (!this.isRocket) {
+      const speedDecay = Math.max(0.98, 1 - (speed * 0.001));
+      this.velocity = new Vector3(
+        this.velocity.x * speedDecay,
+        this.velocity.y * speedDecay,
+        0
+      );
+    }
+    
     // 更新生命值
     this.life -= this.decay;
     
@@ -86,6 +110,48 @@ export class Particle {
         }
     }
     
+    // 更新轨迹
+    if (now - this.lastTrailUpdate >= this.trailUpdateInterval) {
+      // 添加新的轨迹点
+      this.trail.unshift({
+        x: this.position.x,
+        y: this.position.y,
+        alpha: this.alpha,
+        size: this.size,
+        timestamp: now
+      });
+      
+      // 限制轨迹长度
+      while (this.trail.length > this.maxTrailLength) {
+        this.trail.pop();
+      }
+      
+      this.lastTrailUpdate = now;
+    }
+    
+    // 更新现有轨迹点的透明度
+    this.trail.forEach(point => {
+      point.alpha *= 0.95;
+    });
+    
+    // 创建尾部粒子
+    const tail = {
+      x: this.position.x,
+      y: this.position.y,
+      alpha: this.alpha * 0.8,
+      size: this.size * 0.9
+    };
+    
+    this.tailParticles.unshift(tail);
+    
+    // 更新尾部粒子
+    this.tailParticles.forEach((p, i) => {
+      p.alpha *= 0.9;
+    });
+    
+    // 移除消失的尾部粒子
+    this.tailParticles = this.tailParticles.filter(p => p.alpha > 0.01);
+    
     return !this.isDead();
   }
 
@@ -94,11 +160,13 @@ export class Particle {
   }
 
   reset() {
-    this.position.set(0, 0, 0);
-    this.velocity.set(0, 0, 0);
+    this.position = new Vector3(0, 0, 0);
+    this.velocity = new Vector3(0, 0, 0);
     this.life = 1.0;
     this.alpha = 1;
     this.phase = 'launch';
+    this.trail = [];
+    this.lastTrailUpdate = 0;
   }
 
   init(config) {
@@ -109,6 +177,8 @@ export class Particle {
     this.life = 1.0;
     this.alpha = 1;
     this.phase = 'launch';
+    this.trail = [];
+    this.lastTrailUpdate = Date.now();
     return this;
   }
 }

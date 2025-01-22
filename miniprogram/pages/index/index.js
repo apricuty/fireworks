@@ -29,8 +29,12 @@ Page({
   sceneManager: null,
 
   onLoad() {
-    // 初始化系统
-    this.initSystems();
+    try {
+      this.initSystems();
+    } catch (error) {
+      console.error('[Page] System initialization failed:', error);
+      // 可以在这里添加用户提示或fallback逻辑
+    }
     // 设置触摸事件
     this.initTouchEvents();
     

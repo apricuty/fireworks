@@ -4,28 +4,35 @@ import { ObjectPool } from '../utils/ObjectPool';
 
 export default class FireworkSystem {
   constructor() {
-    this.canvas = null;
-    this.ctx = null;
-    this.particles = [];
-    this.rockets = [];
-    this.particlePool = new ObjectPool(Particle, 1000);
-    this.camera = {
-      position: new Vector3(0, 0, 100),
-      target: new Vector3(0, 0, 0)
-    };
-    this.cameraFollowing = true;
-    this.audioManager = null;
-    this.dpr = 1;
-    this.fpsHistory = [];
-    this.lastFrameTime = Date.now();
-    this.performanceMode = 'high';
-    this.debugMode = true;
-    this.displayWidth = 0;
-    this.displayHeight = 0;
-    
-    // 修改全局引用方式
-    const app = getApp();
-    app.fireworkSystem = this;
+    try {
+      this.canvas = null;
+      this.ctx = null;
+      this.particles = [];
+      this.rockets = [];
+      this.particlePool = new ObjectPool(Particle, 1000);
+      this.trailPool = [];  // 轨迹点对象池
+      
+      this.camera = {
+        position: new Vector3(0, 0, 100),
+        target: new Vector3(0, 0, 0)
+      };
+      
+      this.cameraFollowing = true;
+      this.audioManager = null;
+      this.dpr = 1;
+      this.fpsHistory = [];
+      this.lastFrameTime = Date.now();
+      this.performanceMode = 'high';
+      this.debugMode = true;
+      this.displayWidth = 0;
+      this.displayHeight = 0;
+      
+      const app = getApp();
+      app.fireworkSystem = this;
+    } catch (error) {
+      console.error('[FireworkSystem] Initialization error:', error);
+      throw error;  // 重新抛出错误以便上层处理
+    }
   }
 
   // 修改初始化渲染器方法
@@ -210,39 +217,89 @@ export default class FireworkSystem {
   // 渲染场景
   render() {
     if (!this.ctx || !this.canvas) {
-      console.error('[Firework Error] Canvas context not initialized');
       return;
     }
 
-    // 清除画布（使用逻辑像素尺寸）
+    // 清除画布
     this.ctx.clearRect(0, 0, this.displayWidth, this.displayHeight);
     
-    // 设置合成模式
+    // 设置全局混合模式
     this.ctx.globalCompositeOperation = 'lighter';
-
+    
     // 渲染所有粒子
     [...this.rockets, ...this.particles].forEach(particle => {
+      // 计算速度和方向
+      const speed = Math.sqrt(
+        particle.velocity.x * particle.velocity.x + 
+        particle.velocity.y * particle.velocity.y
+      );
+      const angle = Math.atan2(particle.velocity.y, particle.velocity.x);
+      
+      // 根据速度计算拖尾长度
+      const tailLength = speed * 2.5;
+      
+      // 计算拖尾起点和终点
+      const endPoint = {
+        x: particle.position.x,
+        y: particle.position.y
+      };
+      
+      const startPoint = {
+        x: endPoint.x - Math.cos(angle) * tailLength,
+        y: endPoint.y - Math.sin(angle) * tailLength
+      };
+      
+      // 渲染发光拖尾
       this.ctx.save();
       
-      // 使用粒子的实际颜色
-      const [r, g, b, a] = particle.color;
-      this.ctx.fillStyle = `rgba(${r * 255}, ${g * 255}, ${b * 255}, ${particle.alpha})`;
+      // 主要光线
+      const gradient = this.ctx.createLinearGradient(
+        startPoint.x, startPoint.y,
+        endPoint.x, endPoint.y
+      );
       
-      // 画粒子主体
+      const [r, g, b] = particle.color;
+      gradient.addColorStop(0, `rgba(${r*255},${g*255},${b*255},0)`);
+      gradient.addColorStop(0.4, `rgba(${r*255},${g*255},${b*255},0.1)`);
+      gradient.addColorStop(0.6, `rgba(${r*255},${g*255},${b*255},0.3)`);
+      gradient.addColorStop(0.9, `rgba(${r*255},${g*255},${b*255},0.6)`);
+      gradient.addColorStop(1.0, `rgba(${r*255},${g*255},${b*255},${particle.alpha})`);
+      
+      // 绘制主光线
+      this.ctx.beginPath();
+      this.ctx.lineWidth = particle.size * 1.5;
+      this.ctx.strokeStyle = gradient;
+      this.ctx.lineCap = 'round';
+      this.ctx.moveTo(startPoint.x, startPoint.y);
+      this.ctx.lineTo(endPoint.x, endPoint.y);
+      this.ctx.stroke();
+      
+      // 添加外发光效果
+      this.ctx.shadowBlur = particle.size * 3;
+      this.ctx.shadowColor = `rgba(${r*255},${g*255},${b*255},${particle.alpha * 0.5})`;
+      
+      // 绘制发光核心
       this.ctx.beginPath();
       this.ctx.arc(
         particle.position.x,
         particle.position.y,
-        particle.size,
+        particle.size * 0.7,
         0,
         Math.PI * 2
       );
       
-      // 添加发光效果
-      this.ctx.shadowBlur = particle.size * 2;
-      this.ctx.shadowColor = `rgba(${r * 255}, ${g * 255}, ${b * 255}, ${particle.alpha})`;
+      const coreGradient = this.ctx.createRadialGradient(
+        particle.position.x, particle.position.y, 0,
+        particle.position.x, particle.position.y, particle.size * 0.7
+      );
       
+      coreGradient.addColorStop(0, `rgba(${r*255},${g*255},${b*255},${particle.alpha})`);
+      coreGradient.addColorStop(0.4, `rgba(${r*255},${g*255},${b*255},${particle.alpha * 0.6})`);
+      coreGradient.addColorStop(1, `rgba(${r*255},${g*255},${b*255},0)`);
+      
+      this.ctx.fillStyle = coreGradient;
       this.ctx.fill();
+      
       this.ctx.restore();
     });
 
@@ -258,7 +315,7 @@ export default class FireworkSystem {
   dispose() {
     this.particlePool.releaseAll();
     this.particles = [];
-    // 清理全局引用
+    this.trailPool = [];
     const app = getApp();
     app.fireworkSystem = null;
   }
@@ -471,6 +528,36 @@ export default class FireworkSystem {
       particle.color = [...rgb, 1];
       
       this.particles.push(particle);
+    }
+  }
+
+  // 从对象池获取轨迹点
+  getTrailPoint() {
+    return this.trailPool.pop() || {
+      x: 0,
+      y: 0,
+      alpha: 1,
+      size: 1,
+      timestamp: 0
+    };
+  }
+
+  // 回收轨迹点到对象池
+  recycleTrailPoint(point) {
+    if (this.trailPool.length < 1000) {
+      this.trailPool.push(point);
+    }
+  }
+
+  // 性能监控和优化
+  adjustTrailQuality() {
+    const fps = this.getAverageFPS();
+    if (fps < 30) {
+      // 降低轨迹质量
+      [...this.rockets, ...this.particles].forEach(p => {
+        p.maxTrailLength = Math.max(5, p.maxTrailLength - 2);
+        p.trailUpdateInterval = Math.min(32, p.trailUpdateInterval + 8);
+      });
     }
   }
 } 

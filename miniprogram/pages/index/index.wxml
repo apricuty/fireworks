@@ -8,18 +8,21 @@
          mode="aspectFill">
   </image>
   
-  <!-- 雪花效果canvas -->
-  <canvas type="2d" 
-          id="snowCanvas" 
-          class="snow-canvas">
-  </canvas>
+  <!-- 使用新的class来控制canvas层级 -->
+  <view class="canvas-container">
+    <!-- 雪花效果canvas -->
+    <canvas type="2d" 
+            id="snowCanvas" 
+            class="effect-canvas snow-canvas">
+    </canvas>
+    
+    <!-- 烟花效果canvas -->
+    <canvas type="2d" 
+            id="fireworkCanvas" 
+            class="effect-canvas firework-canvas">
+    </canvas>
+  </view>
   
-  <!-- 烟花效果canvas -->
-  <canvas type="2d" 
-          id="fireworkCanvas" 
-          class="firework-canvas">
-  </canvas>
-
   <!-- UI层包装 -->
   <view class="ui-wrapper">
     <!-- 原有的UI元素 -->
