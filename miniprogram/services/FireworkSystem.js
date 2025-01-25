@@ -10,7 +10,7 @@ export default class FireworkSystem {
       this.particles = [];
       this.rockets = [];
       this.particlePool = new ObjectPool(Particle, 1000);
-      this.trailPool = [];  // 轨迹点对象池
+      this.trailPool = [];
       
       this.camera = {
         position: new Vector3(0, 0, 100),
@@ -27,43 +27,48 @@ export default class FireworkSystem {
       this.displayWidth = 0;
       this.displayHeight = 0;
       
+      // 初始化状态标志
+      this.isInitialized = false;
+      
       const app = getApp();
       app.fireworkSystem = this;
     } catch (error) {
       console.error('[FireworkSystem] Initialization error:', error);
-      throw error;  // 重新抛出错误以便上层处理
+      throw error;
     }
   }
 
   // 修改初始化渲染器方法
   async initRenderer(canvas) {
-    if (!canvas) {
-      console.error('Canvas is undefined');
-      return;
-    }
+    try {
+      if (!canvas) {
+        throw new Error('Canvas is undefined');
+      }
 
-    this.canvas = canvas;
-    this.ctx = canvas.getContext('2d');
-    
-    if (!this.ctx) {
-      console.error('Failed to get canvas context');
-      return;
-    }
+      this.canvas = canvas;
+      this.ctx = canvas.getContext('2d');
+      
+      if (!this.ctx) {
+        throw new Error('Failed to get canvas context');
+      }
 
-    // 获取设备信息和DPR
-    const info = wx.getSystemInfoSync();
-    this.dpr = info.pixelRatio;
-    
-    // 保存实际显示尺寸（逻辑像素）
-    this.displayWidth = info.windowWidth;
-    this.displayHeight = info.windowHeight;
-    
-    // 设置画布的物理像素大小
-    canvas.width = this.displayWidth * this.dpr;
-    canvas.height = this.displayHeight * this.dpr;
-    
-    // 缩放上下文以匹配DPR
-    this.ctx.scale(this.dpr, this.dpr);
+      const info = wx.getSystemInfoSync();
+      this.dpr = info.pixelRatio;
+      this.displayWidth = info.windowWidth;
+      this.displayHeight = info.windowHeight;
+      
+      canvas.width = this.displayWidth * this.dpr;
+      canvas.height = this.displayHeight * this.dpr;
+      this.ctx.scale(this.dpr, this.dpr);
+      
+      // 标记初始化完成
+      this.isInitialized = true;
+      
+      return true;
+    } catch (error) {
+      console.error('[FireworkSystem] Renderer initialization failed:', error);
+      return false;
+    }
   }
 
   // 发射烟花
@@ -216,92 +221,94 @@ export default class FireworkSystem {
 
   // 渲染场景
   render() {
-    if (!this.ctx || !this.canvas) {
-      return;
-    }
+    if (!this.ctx || !this.canvas) return;
 
     // 清除画布
     this.ctx.clearRect(0, 0, this.displayWidth, this.displayHeight);
     
-    // 设置全局混合模式
-    this.ctx.globalCompositeOperation = 'lighter';
+    // 设置全局状态
+    this.ctx.globalCompositeOperation = 'screen';
     
-    // 渲染所有粒子
-    [...this.rockets, ...this.particles].forEach(particle => {
-      // 计算速度和方向
-      const speed = Math.sqrt(
-        particle.velocity.x * particle.velocity.x + 
-        particle.velocity.y * particle.velocity.y
-      );
-      const angle = Math.atan2(particle.velocity.y, particle.velocity.x);
+    // 批量处理所有粒子
+    const allParticles = [...this.rockets, ...this.particles];
+    
+    // 渲染所有轨迹点
+    this.ctx.save();
+    allParticles.forEach(particle => {
+      if (particle.trail.length < 2) return;
       
-      // 根据速度计算拖尾长度
-      const tailLength = speed * 2.5;
+      // 计算基础透明度和大小
+      const baseAlpha = particle.alpha * 0.6;
+      const baseSize = particle.size;
       
-      // 计算拖尾起点和终点
-      const endPoint = {
-        x: particle.position.x,
-        y: particle.position.y
-      };
-      
-      const startPoint = {
-        x: endPoint.x - Math.cos(angle) * tailLength,
-        y: endPoint.y - Math.sin(angle) * tailLength
-      };
-      
-      // 渲染发光拖尾
-      this.ctx.save();
-      
-      // 主要光线
-      const gradient = this.ctx.createLinearGradient(
-        startPoint.x, startPoint.y,
-        endPoint.x, endPoint.y
-      );
-      
-      const [r, g, b] = particle.color;
-      gradient.addColorStop(0, `rgba(${r*255},${g*255},${b*255},0)`);
-      gradient.addColorStop(0.4, `rgba(${r*255},${g*255},${b*255},0.1)`);
-      gradient.addColorStop(0.6, `rgba(${r*255},${g*255},${b*255},0.3)`);
-      gradient.addColorStop(0.9, `rgba(${r*255},${g*255},${b*255},0.6)`);
-      gradient.addColorStop(1.0, `rgba(${r*255},${g*255},${b*255},${particle.alpha})`);
-      
-      // 绘制主光线
+      // 遍历轨迹点
+      for (let i = 0; i < particle.trail.length; i++) {
+        const point = particle.trail[i];
+        const progress = i / particle.trail.length;
+        
+        // 计算点的大小和透明度
+        const size = baseSize * (1 - progress * 0.5);
+        const alpha = baseAlpha * (1 - progress);
+        
+        // 绘制主发光点
+        this.ctx.beginPath();
+        this.ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.8})`;
+        this.ctx.arc(point.x, point.y, size * 0.8, 0, Math.PI * 2);
+        this.ctx.fill();
+        
+        // 绘制外发光
       this.ctx.beginPath();
-      this.ctx.lineWidth = particle.size * 1.5;
-      this.ctx.strokeStyle = gradient;
-      this.ctx.lineCap = 'round';
-      this.ctx.moveTo(startPoint.x, startPoint.y);
-      this.ctx.lineTo(endPoint.x, endPoint.y);
-      this.ctx.stroke();
-      
-      // 添加外发光效果
-      this.ctx.shadowBlur = particle.size * 3;
-      this.ctx.shadowColor = `rgba(${r*255},${g*255},${b*255},${particle.alpha * 0.5})`;
-      
-      // 绘制发光核心
+        this.ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.3})`;
+        this.ctx.arc(point.x, point.y, size * 1.5, 0, Math.PI * 2);
+        this.ctx.fill();
+        
+        // 随机添加一些小点增加烟雾效果
+        if (Math.random() < 0.3) {
+          const offsetX = (Math.random() - 0.5) * size * 2;
+          const offsetY = (Math.random() - 0.5) * size * 2;
+          this.ctx.beginPath();
+          this.ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.2})`;
+          this.ctx.arc(
+            point.x + offsetX,
+            point.y + offsetY,
+            size * 0.4,
+            0,
+            Math.PI * 2
+          );
+          this.ctx.fill();
+        }
+      }
+    });
+    this.ctx.restore();
+    
+    // 渲染粒子本体
+    this.ctx.save();
+    allParticles.forEach(particle => {
+      // 绘制主体发光
       this.ctx.beginPath();
+      this.ctx.fillStyle = `rgba(255, 255, 255, ${particle.alpha})`;
       this.ctx.arc(
         particle.position.x,
         particle.position.y,
-        particle.size * 0.7,
+        particle.size,
         0,
         Math.PI * 2
       );
-      
-      const coreGradient = this.ctx.createRadialGradient(
-        particle.position.x, particle.position.y, 0,
-        particle.position.x, particle.position.y, particle.size * 0.7
-      );
-      
-      coreGradient.addColorStop(0, `rgba(${r*255},${g*255},${b*255},${particle.alpha})`);
-      coreGradient.addColorStop(0.4, `rgba(${r*255},${g*255},${b*255},${particle.alpha * 0.6})`);
-      coreGradient.addColorStop(1, `rgba(${r*255},${g*255},${b*255},0)`);
-      
-      this.ctx.fillStyle = coreGradient;
       this.ctx.fill();
       
-      this.ctx.restore();
+      // 绘制外发光
+        this.ctx.beginPath();
+      this.ctx.fillStyle = `rgba(255, 255, 255, ${particle.alpha * 0.5})`;
+        this.ctx.arc(
+          particle.position.x,
+          particle.position.y,
+          particle.size * 2,
+          0,
+          Math.PI * 2
+        );
+        this.ctx.fill();
     });
+    this.ctx.restore();
 
     this.monitorPerformance();
   }

@@ -173,6 +173,10 @@ Page({
 
   // 点击引线
   onTapFuse() {
+    if (!this.fireworkSystem || !this.fireworkSystem.isInitialized) {
+      console.error('[Animation Debug] System not initialized');
+      return;
+    }
     if (this.data.isFuseBurning || this.data.isPaused) return;
     
     this.setData({
@@ -188,13 +192,8 @@ Page({
 
   // 引线动画
   startFuseAnimation() {
-    // 检查系统是否已初始化
-    if (!this.data.isInitialized || !this.fireworkSystem || !this.fireworkSystem.canvas) {
+    if (!this.fireworkSystem || !this.fireworkSystem.isInitialized) {
       console.error('[Animation Debug] System not initialized');
-      wx.showToast({
-        title: '系统初始化中，请稍后再试',
-        icon: 'none'
-      });
       return;
     }
 
