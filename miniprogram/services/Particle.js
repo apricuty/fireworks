@@ -64,10 +64,46 @@ export class Particle {
 
       // 计算新的速度和位置
       if (!this.isFlash) {  // 闪光不需要更新位置
+        // 使用新向量进行计算
         const newVelocity = this.velocity.add(this.acceleration.multiply(dt));
+        const newPosition = this.position.add(newVelocity.multiply(dt));
+        
+        // 更新状态
         this.velocity = newVelocity;
-        const newPosition = this.position.add(this.velocity.multiply(dt));
         this.position = newPosition;
+      }
+
+      // 火箭粒子的爆炸判定
+      if (this.isRocket) {
+        // 当火箭开始下落或达到目标高度时爆炸
+        const heightReached = this.startY - this.position.y;
+        const targetHeight = this.displayHeight * 0.6; // 设置目标高度为屏幕高度的60%
+        
+        console.log('[Rocket Debug]', {
+          currentHeight: heightReached.toFixed(2),
+          targetHeight: targetHeight.toFixed(2),
+          velocity: this.velocity.y.toFixed(2),
+          position: {
+            x: this.position.x.toFixed(2),
+            y: this.position.y.toFixed(2)
+          }
+        });
+
+        if (this.velocity.y >= 0 || heightReached >= targetHeight) {
+          // 获取FireworkSystem实例
+          const app = getApp();
+          const fireworkSystem = app.fireworkSystem;
+          
+          if (fireworkSystem) {
+            // 调用新的爆炸效果
+            fireworkSystem.createExplosionParticles(this.position.clone());
+            // 播放爆炸音效
+            if (fireworkSystem.audioManager) {
+              fireworkSystem.audioManager.playExplodeSound();
+            }
+            return false; // 标记火箭消失
+          }
+        }
       }
 
       // 闪光效果的特殊处理
@@ -113,26 +149,6 @@ export class Particle {
         const timeSinceLaunch = (now - this.launchTime) / 1000;
         
         this.lastLogTime = now;
-      }
-      
-      // 火箭粒子的爆炸判定
-      if (this.isRocket) {
-        // 当火箭开始下落或达到目标高度时爆炸
-        if (this.velocity.y >= 0 || this.position.y <= this.targetHeight) {
-          // 获取FireworkSystem实例
-          const app = getApp();
-          const fireworkSystem = app.fireworkSystem;
-          
-          if (fireworkSystem) {
-            // 调用新的爆炸效果
-            fireworkSystem.createExplosionParticles(this.position.clone());
-            // 播放爆炸音效
-            if (fireworkSystem.audioManager) {
-              fireworkSystem.audioManager.playExplodeSound();
-            }
-            return false; // 标记火箭消失
-          }
-        }
       }
       
       // 更新扰动（添加错误检查）

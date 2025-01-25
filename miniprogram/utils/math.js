@@ -20,11 +20,11 @@ export class Vector3 {
     return this;
   }
 
-  multiply(scalar) {
+  multiply(s) {
     return new Vector3(
-      this.x * scalar,
-      this.y * scalar,
-      this.z * scalar
+      this.x * s,
+      this.y * s,
+      this.z * s
     );
   }
 

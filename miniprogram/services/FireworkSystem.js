@@ -6,33 +6,33 @@ import { ExplosionTrail } from './ExplosionTrail';
 export default class FireworkSystem {
   constructor() {
     try {
-      this.canvas = null;
-      this.ctx = null;
-      this.particles = [];
-      this.rockets = [];
-      this.particlePool = new ObjectPool(Particle, 1000);
+    this.canvas = null;
+    this.ctx = null;
+    this.particles = [];
+    this.rockets = [];
+    this.particlePool = new ObjectPool(Particle, 1000);
       this.trailPool = [];
       
-      this.camera = {
-        position: new Vector3(0, 0, 100),
-        target: new Vector3(0, 0, 0)
-      };
+    this.camera = {
+      position: new Vector3(0, 0, 100),
+      target: new Vector3(0, 0, 0)
+    };
       
-      this.cameraFollowing = true;
-      this.audioManager = null;
-      this.dpr = 1;
-      this.fpsHistory = [];
-      this.lastFrameTime = Date.now();
-      this.performanceMode = 'high';
-      this.debugMode = true;
-      this.displayWidth = 0;
-      this.displayHeight = 0;
-      
+    this.cameraFollowing = true;
+    this.audioManager = null;
+    this.dpr = 1;
+    this.fpsHistory = [];
+    this.lastFrameTime = Date.now();
+    this.performanceMode = 'high';
+    this.debugMode = true;
+    this.displayWidth = 0;
+    this.displayHeight = 0;
+    
       // 初始化状态标志
       this.isInitialized = false;
       
-      const app = getApp();
-      app.fireworkSystem = this;
+    const app = getApp();
+    app.fireworkSystem = this;
     } catch (error) {
       console.error('[FireworkSystem] Initialization error:', error);
       throw error;
@@ -42,24 +42,24 @@ export default class FireworkSystem {
   // 修改初始化渲染器方法
   async initRenderer(canvas) {
     try {
-      if (!canvas) {
+    if (!canvas) {
         throw new Error('Canvas is undefined');
-      }
+    }
 
-      this.canvas = canvas;
-      this.ctx = canvas.getContext('2d');
-      
-      if (!this.ctx) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    
+    if (!this.ctx) {
         throw new Error('Failed to get canvas context');
-      }
+    }
 
-      const info = wx.getSystemInfoSync();
-      this.dpr = info.pixelRatio;
-      this.displayWidth = info.windowWidth;
-      this.displayHeight = info.windowHeight;
-      
-      canvas.width = this.displayWidth * this.dpr;
-      canvas.height = this.displayHeight * this.dpr;
+    const info = wx.getSystemInfoSync();
+    this.dpr = info.pixelRatio;
+    this.displayWidth = info.windowWidth;
+    this.displayHeight = info.windowHeight;
+    
+    canvas.width = this.displayWidth * this.dpr;
+    canvas.height = this.displayHeight * this.dpr;
       this.ctx.scale(this.dpr, this.dpr);
       
       // 标记初始化完成
@@ -111,37 +111,34 @@ export default class FireworkSystem {
 
   // 创建爆炸粒子
   createExplosionParticles(position, color) {
-    // 创建中心爆炸闪光
-    const flash = this.particlePool.get();
-    flash.init({
-      position: position.clone(),
-      velocity: new Vector3(0, 0, 0),
-      color: [1, 1, 1, 1],
-      size: 15,
-      decay: 0.3,  // 每帧减少 0.3 的生命值
-      isFlash: true  // 重要：设置闪光标记
-    });
-    this.particles.push(flash);
-    
-    console.log('[Explosion Debug] Starting explosion at:', {
-      x: position.x.toFixed(2),
-      y: position.y.toFixed(2)
+    console.log('[Explosion Start]', {
+      position: {
+        x: position.x.toFixed(2),
+        y: position.y.toFixed(2)
+      },
+      time: new Date().toISOString()
     });
     
     // 主要爆炸效果
-    const trails = 36;
+    const trails = 38;
     const baseHue = Math.random() * 360;
-    const spread = 1.5; // 基础扩散系数
+    const spread = 0.9;
     
-    // 创建多层爆炸效果
     for (let layer = 0; layer < 3; layer++) {
-      const layerSpread = spread * (layer * 0.5 + 1);
-      const layerCount = Math.floor(trails * (1 - layer * 0.2));
-      const layerDelay = layer * 20;
+      const layerSpread = spread * (layer * 0.3 + 1);
+      const layerCount = Math.floor(trails * (1 - layer * 0.15));
+      const layerDelay = layer * 18;
       
       setTimeout(() => {
-        // 显著提高基础速度
-        const baseSpeed = 400 + (2 - layer) * 50;  // 大幅提高基础速度
+        const baseSpeed = 200 + (2 - layer) * 35;
+        
+        console.log('[Layer Start]', {
+          layer,
+          baseSpeed,
+          layerSpread,
+          particleCount: layerCount,
+          expectedMaxSpeed: baseSpeed * 1.1 * layerSpread
+        });
         
         for (let i = 0; i < layerCount; i++) {
           const segmentAngle = (Math.PI * 2) / layerCount;
@@ -149,33 +146,37 @@ export default class FireworkSystem {
           const angleOffset = (Math.random() - 0.5) * segmentAngle * 0.3;
           const finalAngle = angle + angleOffset;
           
-          // 计算最终速度
-          const speedVariation = 0.9 + Math.random() * 0.2;
-          const finalSpeed = baseSpeed * speedVariation * layerSpread;  // 重新加入 layerSpread
+          // 计算速度向量
+          const speedVariation = 0.85 + Math.random() * 0.3;
+          const speed = baseSpeed * speedVariation * layerSpread;
+          const velocity = new Vector3(
+            Math.cos(finalAngle) * speed,
+            Math.sin(finalAngle) * speed,
+            0
+          );
           
           // 创建轨迹
           const trail = new ExplosionTrail({
             position: position.clone(),
-            velocity: new Vector3(
-              Math.cos(finalAngle) * finalSpeed,
-              Math.sin(finalAngle) * finalSpeed,
-              0
-            ),
+            velocity: velocity,
             baseHue,
             layer,
             hslToRgb: this.hslToRgb.bind(this)
           });
           
           this.particles.push(trail);
+          
+          console.log('[Particle Created]', {
+            layer,
+            index: i,
+            angle: (finalAngle * 180 / Math.PI).toFixed(2),
+            speed: speed.toFixed(2),
+            direction: {
+              x: Math.cos(finalAngle).toFixed(3),
+              y: Math.sin(finalAngle).toFixed(3)
+            }
+          });
         }
-        
-        console.log('[Explosion Debug] Layer created:', {
-          layer,
-          particleCount: layerCount,
-          baseSpeed,
-          finalSpeed: baseSpeed * layerSpread,
-          spread: layerSpread
-        });
       }, layerDelay);
     }
   }
@@ -184,7 +185,7 @@ export default class FireworkSystem {
   createExplosionFlash(position) {
     const flash = this.particlePool.get();
     flash.init({
-      position: position.clone(),
+        position: position.clone(),
       velocity: new Vector3(0, 0, 0),
       color: [1, 1, 1, 1],
       size: 15,
@@ -201,14 +202,14 @@ export default class FireworkSystem {
     // 创建轨迹对象
     const trail = new ExplosionTrail({
       position,
-      velocity: new Vector3(
-        Math.cos(angle) * speed,
-        Math.sin(angle) * speed,
-        0
-      ),
+        velocity: new Vector3(
+          Math.cos(angle) * speed,
+          Math.sin(angle) * speed,
+          0
+        ),
       baseHue,
       layer
-    });
+      });
     
     return trail;
   }
@@ -289,7 +290,7 @@ export default class FireworkSystem {
     
     // 设置混合模式
     this.ctx.globalCompositeOperation = 'screen';
-    
+
     // 渲染所有粒子
     [...this.rockets, ...this.particles].forEach(particle => {
       if (particle instanceof ExplosionTrail) {

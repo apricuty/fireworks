@@ -1,3 +1,5 @@
+import { Vector3 } from '../utils/math';
+
 export class ExplosionTrail {
   constructor(options) {
     this.position = options.position;
@@ -8,28 +10,45 @@ export class ExplosionTrail {
     
     // 轨迹属性
     this.particles = [];
-    this.maxParticles = 10;  // 减少粒子数量以提高性能
+    this.maxParticles = 6; // 减少轨迹长度
     this.life = 1;
-    this.decay = 0.012;  // 稍微降低衰减以保持更长的可见时间
+    this.decay = 0.01; // 略微加快衰减
+    
+    // 物理参数
+    this.gravity = new Vector3(0, 85, 0); // 增加重力影响
+    this.airResistance = 0.93; // 调整空气阻力
+    this.minSpeed = 35; // 提高最小速度阈值
+    
+    // 渲染参数
+    this.startWidth = 2; // 减小起始线宽
+    this.endWidth = 0.3; // 减小结束线宽
+    this.glowSize = 8; // 减小发光范围
+    this.glowAlpha = 0.3; // 减小发光强度
     
     // 颜色渐变
     this.baseColor = this.generateColor();
     this.endColor = [1, 1, 1, 1];
     
-    // 记录初始状态用于调试
+    // 记录初始状态
     const speed = Math.sqrt(
       this.velocity.x * this.velocity.x + 
       this.velocity.y * this.velocity.y
     );
     
-    console.log('[Trail Debug] New trail:', {
+    // 添加更详细的初始化日志
+    console.log('[Trail Init]', {
       layer: this.layer,
       speed: speed.toFixed(2),
+      velocity: {
+        x: this.velocity.x.toFixed(2),
+        y: this.velocity.y.toFixed(2)
+      },
       angle: (Math.atan2(this.velocity.y, this.velocity.x) * 180 / Math.PI).toFixed(2),
       position: {
         x: this.position.x.toFixed(2),
         y: this.position.y.toFixed(2)
-      }
+      },
+      decay: this.decay
     });
   }
   
@@ -39,31 +58,75 @@ export class ExplosionTrail {
   }
   
   update(dt) {
+    const oldPosition = {
+      x: this.position.x,
+      y: this.position.y
+    };
+    
+    // 计算当前速度大小
+    const currentSpeed = Math.sqrt(
+      this.velocity.x * this.velocity.x + 
+      this.velocity.y * this.velocity.y
+    );
+    
+    // 应用空气阻力（速度越大，阻力越大）
+    const airResistanceFactor = Math.pow(this.airResistance, currentSpeed / 500);
+    this.velocity = this.velocity.multiply(airResistanceFactor);
+    
+    // 应用重力
+    const gravityEffect = this.gravity.multiply(dt);
+    this.velocity = this.velocity.add(gravityEffect);
+    
+    // 如果速度小于阈值，显著增加阻力
+    if (currentSpeed < this.minSpeed) {
+      this.velocity = this.velocity.multiply(0.95);
+    }
+    
     // 更新位置
-    this.position.add(this.velocity.multiply(dt));
+    const velocityDt = this.velocity.multiply(dt);
+    this.position = this.position.add(velocityDt);
     
     // 添加新的粒子
     this.particles.unshift({
       position: this.position.clone(),
-      size: 2 * this.life,  // 减小粒子大小
+      size: 1.5 * this.life,
       alpha: this.life,
       color: this.interpolateColor(this.baseColor, this.endColor, 1 - this.life)
     });
     
-    // 限制粒子数量
     if (this.particles.length > this.maxParticles) {
       this.particles.pop();
     }
     
     // 更新现有粒子
     this.particles.forEach((particle, i) => {
-      particle.alpha *= 0.88;  // 加快透明度衰减
-      particle.size *= 0.92;   // 加快大小衰减
+      particle.alpha *= 0.92; // 降低透明度衰减速度
+      particle.size *= 0.94; // 降低大小衰减速度
     });
     
     // 更新生命值
     this.life -= this.decay;
-    this.velocity.multiply(0.98); // 减缓减速效果以保持扩散范围
+    
+    // 调试日志
+    if (Math.random() < 0.05) {
+      console.log('[Trail Update]', {
+        layer: this.layer,
+        life: this.life.toFixed(3),
+        currentSpeed: currentSpeed.toFixed(2),
+        position: {
+          x: this.position.x.toFixed(2),
+          y: this.position.y.toFixed(2)
+        },
+        velocity: {
+          x: this.velocity.x.toFixed(2),
+          y: this.velocity.y.toFixed(2)
+        },
+        displacement: {
+          x: (this.position.x - oldPosition.x).toFixed(2),
+          y: (this.position.y - oldPosition.y).toFixed(2)
+        }
+      });
+    }
     
     return this.life > 0;
   }
@@ -71,24 +134,33 @@ export class ExplosionTrail {
   render(ctx) {
     ctx.save();
     
-    // 渲染轨迹粒子
+    // 渲染光束效果
     this.particles.forEach((particle, i) => {
+      const nextParticle = this.particles[i + 1];
+      if (!nextParticle) return;
+      
       const progress = i / this.particles.length;
-      
-      // 创建径向渐变
-      const gradient = ctx.createRadialGradient(
-        particle.position.x, particle.position.y, 0,
-        particle.position.x, particle.position.y, particle.size * 2
-      );
-      
       const color = particle.color;
-      gradient.addColorStop(0, `rgba(${color[0]*255},${color[1]*255},${color[2]*255},${particle.alpha})`);
-      gradient.addColorStop(1, `rgba(${color[0]*255},${color[1]*255},${color[2]*255},0)`);
       
-      ctx.fillStyle = gradient;
+      // 光束核心
+      const coreWidth = this.startWidth * (1 - progress) + this.endWidth * progress;
       ctx.beginPath();
-      ctx.arc(particle.position.x, particle.position.y, particle.size * 2, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.strokeStyle = `rgba(${color[0]*255},${color[1]*255},${color[2]*255},${particle.alpha})`;
+      ctx.lineWidth = coreWidth;
+      ctx.lineCap = 'round';
+      ctx.moveTo(particle.position.x, particle.position.y);
+      ctx.lineTo(nextParticle.position.x, nextParticle.position.y);
+      ctx.stroke();
+      
+      // 仅保留一层光晕，简化效果
+      const glowWidth = coreWidth * 2;
+      ctx.beginPath();
+      ctx.strokeStyle = `rgba(${color[0]*255},${color[1]*255},${color[2]*255},${particle.alpha * 0.3})`;
+      ctx.lineWidth = glowWidth;
+      ctx.lineCap = 'round';
+      ctx.moveTo(particle.position.x, particle.position.y);
+      ctx.lineTo(nextParticle.position.x, nextParticle.position.y);
+      ctx.stroke();
     });
     
     ctx.restore();
