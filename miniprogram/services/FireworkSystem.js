@@ -111,34 +111,18 @@ export default class FireworkSystem {
 
   // 创建爆炸粒子
   createExplosionParticles(position, color) {
-    console.log('[Explosion Start]', {
-      position: {
-        x: position.x.toFixed(2),
-        y: position.y.toFixed(2)
-      },
-      time: new Date().toISOString()
-    });
-    
     // 主要爆炸效果
     const trails = 38;
     const baseHue = Math.random() * 360;
-    const spread = 0.9;
+    const spread = 0.65;
     
     for (let layer = 0; layer < 3; layer++) {
-      const layerSpread = spread * (layer * 0.3 + 1);
+      const layerSpread = spread * (layer * 0.15 + 1);
       const layerCount = Math.floor(trails * (1 - layer * 0.15));
       const layerDelay = layer * 18;
       
       setTimeout(() => {
-        const baseSpeed = 200 + (2 - layer) * 35;
-        
-        console.log('[Layer Start]', {
-          layer,
-          baseSpeed,
-          layerSpread,
-          particleCount: layerCount,
-          expectedMaxSpeed: baseSpeed * 1.1 * layerSpread
-        });
+        const baseSpeed = 140 + (2 - layer) * 20;
         
         for (let i = 0; i < layerCount; i++) {
           const segmentAngle = (Math.PI * 2) / layerCount;
@@ -147,7 +131,7 @@ export default class FireworkSystem {
           const finalAngle = angle + angleOffset;
           
           // 计算速度向量
-          const speedVariation = 0.85 + Math.random() * 0.3;
+          const speedVariation = 0.9 + Math.random() * 0.15;
           const speed = baseSpeed * speedVariation * layerSpread;
           const velocity = new Vector3(
             Math.cos(finalAngle) * speed,
@@ -165,17 +149,6 @@ export default class FireworkSystem {
           });
           
           this.particles.push(trail);
-          
-          console.log('[Particle Created]', {
-            layer,
-            index: i,
-            angle: (finalAngle * 180 / Math.PI).toFixed(2),
-            speed: speed.toFixed(2),
-            direction: {
-              x: Math.cos(finalAngle).toFixed(3),
-              y: Math.sin(finalAngle).toFixed(3)
-            }
-          });
         }
       }, layerDelay);
     }
@@ -466,16 +439,6 @@ export default class FireworkSystem {
     startX = Math.min(Math.max(startX, padding), this.displayWidth - padding);
     
     const startY = this.displayHeight - padding;
-    
-    // 调试日志
-    console.log('[Firework Debug] Launch position:', {
-      canvasWidth: this.displayWidth,
-      canvasHeight: this.displayHeight,
-      originalX: x,
-      startX,
-      startY,
-      randomOffset: startX - x
-    });
 
     const rocket = new Particle(startX, startY, true);
     rocket.color = [0, 1, 0, 1];

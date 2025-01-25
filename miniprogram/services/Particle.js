@@ -78,16 +78,6 @@ export class Particle {
         // 当火箭开始下落或达到目标高度时爆炸
         const heightReached = this.startY - this.position.y;
         const targetHeight = this.displayHeight * 0.6; // 设置目标高度为屏幕高度的60%
-        
-        console.log('[Rocket Debug]', {
-          currentHeight: heightReached.toFixed(2),
-          targetHeight: targetHeight.toFixed(2),
-          velocity: this.velocity.y.toFixed(2),
-          position: {
-            x: this.position.x.toFixed(2),
-            y: this.position.y.toFixed(2)
-          }
-        });
 
         if (this.velocity.y >= 0 || heightReached >= targetHeight) {
           // 获取FireworkSystem实例
@@ -241,15 +231,6 @@ export class Particle {
     this.phase = 'launch';
     this.trail = [];
     this.lastTrailUpdate = Date.now();
-    
-    // 添加调试日志
-    if (this.isFlash) {
-      console.log('[Flash Init]', {
-        isFlash: this.isFlash,
-        decay: this.decay,
-        size: this.size
-      });
-    }
     
     return this;
   }

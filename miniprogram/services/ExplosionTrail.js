@@ -12,12 +12,12 @@ export class ExplosionTrail {
     this.particles = [];
     this.maxParticles = 6; // 减少轨迹长度
     this.life = 1;
-    this.decay = 0.01; // 略微加快衰减
+    this.decay = 0.025; // 加快生命值衰减 (原0.01)
     
     // 物理参数
-    this.gravity = new Vector3(0, 85, 0); // 增加重力影响
-    this.airResistance = 0.93; // 调整空气阻力
-    this.minSpeed = 35; // 提高最小速度阈值
+    this.gravity = new Vector3(0, 98, 0); // 增加重力影响
+    this.airResistance = 0.88; // 增加空气阻力 (原0.90)
+    this.minSpeed = 55; // 提高最小速度阈值 (原45)
     
     // 渲染参数
     this.startWidth = 2; // 减小起始线宽
@@ -34,22 +34,6 @@ export class ExplosionTrail {
       this.velocity.x * this.velocity.x + 
       this.velocity.y * this.velocity.y
     );
-    
-    // 添加更详细的初始化日志
-    console.log('[Trail Init]', {
-      layer: this.layer,
-      speed: speed.toFixed(2),
-      velocity: {
-        x: this.velocity.x.toFixed(2),
-        y: this.velocity.y.toFixed(2)
-      },
-      angle: (Math.atan2(this.velocity.y, this.velocity.x) * 180 / Math.PI).toFixed(2),
-      position: {
-        x: this.position.x.toFixed(2),
-        y: this.position.y.toFixed(2)
-      },
-      decay: this.decay
-    });
   }
   
   generateColor() {
@@ -100,33 +84,12 @@ export class ExplosionTrail {
     
     // 更新现有粒子
     this.particles.forEach((particle, i) => {
-      particle.alpha *= 0.92; // 降低透明度衰减速度
-      particle.size *= 0.94; // 降低大小衰减速度
+      particle.alpha *= 0.89; // 加快透明度衰减 (原0.92)
+      particle.size *= 0.91; // 加快大小衰减 (原0.94)
     });
     
     // 更新生命值
     this.life -= this.decay;
-    
-    // 调试日志
-    if (Math.random() < 0.05) {
-      console.log('[Trail Update]', {
-        layer: this.layer,
-        life: this.life.toFixed(3),
-        currentSpeed: currentSpeed.toFixed(2),
-        position: {
-          x: this.position.x.toFixed(2),
-          y: this.position.y.toFixed(2)
-        },
-        velocity: {
-          x: this.velocity.x.toFixed(2),
-          y: this.velocity.y.toFixed(2)
-        },
-        displacement: {
-          x: (this.position.x - oldPosition.x).toFixed(2),
-          y: (this.position.y - oldPosition.y).toFixed(2)
-        }
-      });
-    }
     
     return this.life > 0;
   }
