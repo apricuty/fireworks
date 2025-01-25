@@ -3,6 +3,12 @@ import Particle from './Particle';
 import { ObjectPool } from '../utils/ObjectPool';
 import { ExplosionTrail } from './ExplosionTrail';
 
+// 添加样式配置
+const FIREWORK_STYLES = {
+  BASIC: 'basic',
+  DUAL_COLOR: 'dual_color'
+};
+
 export default class FireworkSystem {
   constructor() {
     try {
@@ -33,6 +39,29 @@ export default class FireworkSystem {
       
     const app = getApp();
     app.fireworkSystem = this;
+    
+    // 添加样式配置
+    this.fireworkStyles = {
+      [FIREWORK_STYLES.BASIC]: {
+        trails: 38,
+        spread: 0.65,
+        baseSpeed: 140
+      },
+      [FIREWORK_STYLES.DUAL_COLOR]: {
+        inner: {
+          trails: 32,
+          spread: 0.5,
+          baseSpeed: 120,
+          color: [255, 255, 255] // 内层白色
+        },
+        outer: {
+          trails: 48,
+          spread: 0.8,
+          baseSpeed: 160,
+          color: [255, 0, 0] // 外层红色
+        }
+      }
+    };
     } catch (error) {
       console.error('[FireworkSystem] Initialization error:', error);
       throw error;
@@ -109,9 +138,61 @@ export default class FireworkSystem {
     }
   }
 
-  // 创建爆炸粒子
+  // 修改爆炸效果创建方法
   createExplosionParticles(position, color) {
-    // 主要爆炸效果
+    // 随机选择样式
+    const style = Math.random() < 0.5 ? FIREWORK_STYLES.BASIC : FIREWORK_STYLES.DUAL_COLOR;
+    
+    if (style === FIREWORK_STYLES.BASIC) {
+      // 原有的基础样式逻辑
+      this.createBasicExplosion(position, color);
+    } else {
+      // 新增的双色样式逻辑
+      this.createDualColorExplosion(position);
+    }
+    
+    // 添加白色火花效果
+    const sparkCount = 60; // 火花数量
+    const sparkSpread = 30; // 火花扩散范围
+    const sparkBaseSpeed = 80; // 火花基础速度
+    
+    for (let i = 0; i < sparkCount; i++) {
+      // 随机角度
+      const angle = Math.random() * Math.PI * 2;
+      // 随机速度
+      const speed = sparkBaseSpeed * (0.5 + Math.random() * 0.5);
+      
+      // 计算速度向量
+      const velocity = new Vector3(
+        Math.cos(angle) * speed,
+        Math.sin(angle) * speed,
+        0
+      );
+      
+      // 添加一些随机初始位置偏移
+      const offset = new Vector3(
+        (Math.random() - 0.5) * sparkSpread,
+        (Math.random() - 0.5) * sparkSpread,
+        0
+      );
+      
+      // 创建火花轨迹
+      const spark = new ExplosionTrail({
+        position: position.clone().add(offset),
+        velocity: velocity,
+        baseHue: 0, // 使用白色
+        layer: 0,
+        hslToRgb: this.hslToRgb.bind(this),
+        isSpark: true // 标记为火花粒子
+      });
+      
+      this.particles.push(spark);
+    }
+  }
+
+  // 添加基础爆炸效果方法
+  createBasicExplosion(position, color) {
+    // 移动原有的基础爆炸效果逻辑到这里
     const trails = 38;
     const baseHue = Math.random() * 360;
     const spread = 0.65;
@@ -151,6 +232,74 @@ export default class FireworkSystem {
           this.particles.push(trail);
         }
       }, layerDelay);
+    }
+  }
+
+  // 修改双色爆炸效果方法
+  createDualColorExplosion(position) {
+    const styleConfig = this.fireworkStyles[FIREWORK_STYLES.DUAL_COLOR];
+    
+    // 创建内层（白色）
+    const innerConfig = {
+      ...styleConfig.inner,
+      isInner: true,
+      maxParticles: 4,
+      decay: 0.03,
+      color: styleConfig.inner.color // 确保颜色正确传递
+    };
+    
+    // 创建外层（红色）
+    const outerConfig = {
+      ...styleConfig.outer,
+      isInner: false,
+      maxParticles: 5,
+      decay: 0.025,
+      color: styleConfig.outer.color // 确保颜色正确传递
+    };
+    
+    this.createColorLayer(position, innerConfig);
+    this.createColorLayer(position, outerConfig);
+  }
+
+  // 创建单个颜色层
+  createColorLayer(position, config) {
+    const { trails, spread, baseSpeed, color, isInner, maxParticles, decay } = config;
+    
+    // 添加颜色配置检查
+    if (!color || !Array.isArray(color) || color.length !== 3) {
+      console.error('[ColorLayer] Invalid color configuration:', color);
+      return;
+    }
+    
+    
+    for (let i = 0; i < trails; i++) {
+      const segmentAngle = (Math.PI * 2) / trails;
+      const angle = i * segmentAngle;
+      const angleOffset = (Math.random() - 0.5) * segmentAngle * 0.3;
+      const finalAngle = angle + angleOffset;
+      
+      // 计算速度向量
+      const speedVariation = 0.9 + Math.random() * 0.15;
+      const speed = baseSpeed * speedVariation * spread;
+      const velocity = new Vector3(
+        Math.cos(finalAngle) * speed,
+        Math.sin(finalAngle) * speed,
+        0
+      );
+      
+      // 创建轨迹时确保颜色正确传递
+      const trail = new ExplosionTrail({
+        position: position.clone(),
+        velocity: velocity,
+        isInner: isInner,
+        layer: isInner ? 0 : 1,
+        color: [...color], // 确保传递颜色数组的副本
+        maxParticles: maxParticles,
+        decay: decay,
+        hslToRgb: this.hslToRgb.bind(this)
+      });
+      
+      this.particles.push(trail);
     }
   }
 

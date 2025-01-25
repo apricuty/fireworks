@@ -8,37 +8,80 @@ export class ExplosionTrail {
     this.layer = options.layer;
     this.hslToRgb = options.hslToRgb;  // 接收颜色转换方法
     
-    // 轨迹属性
+    // 基础属性初始化
     this.particles = [];
-    this.maxParticles = 6; // 减少轨迹长度
     this.life = 1;
-    this.decay = 0.025; // 加快生命值衰减 (原0.01)
     
-    // 物理参数
-    this.gravity = new Vector3(0, 98, 0); // 增加重力影响
-    this.airResistance = 0.88; // 增加空气阻力 (原0.90)
-    this.minSpeed = 55; // 提高最小速度阈值 (原45)
+    // 标记类型
+    this.isSpark = options.isSpark || false;
+    this.isInner = options.isInner;
+    this.fixedColor = options.color;
     
-    // 渲染参数
-    this.startWidth = 2; // 减小起始线宽
-    this.endWidth = 0.3; // 减小结束线宽
-    this.glowSize = 8; // 减小发光范围
-    this.glowAlpha = 0.3; // 减小发光强度
-    
-    // 颜色渐变
-    this.baseColor = this.generateColor();
-    this.endColor = [1, 1, 1, 1];
-    
-    // 记录初始状态
-    const speed = Math.sqrt(
-      this.velocity.x * this.velocity.x + 
-      this.velocity.y * this.velocity.y
-    );
+    if (this.isSpark) {
+      // 火花特有的参数
+      this.maxParticles = 4;
+      this.decay = 0.03;
+      this.gravity = new Vector3(0, 120, 0);
+      this.airResistance = 0.85;
+      this.minSpeed = 30;
+      
+      // 火花渲染参数
+      this.startWidth = 0.8;
+      this.endWidth = 0.2;
+      this.glowSize = 3;
+      this.glowAlpha = 0.2;
+      
+      // 火花颜色
+      this.baseColor = [1, 0.95, 0.8, 1];
+      this.sparkGlow = true;
+      
+    } else {
+      // 非火花粒子参数
+      if (this.isInner) {
+        this.maxParticles = options.maxParticles || 4;
+        this.decay = options.decay || 0.03;
+        this.startWidth = 2;
+        this.endWidth = 0.3;
+        this.glowSize = 8;
+        this.glowAlpha = 0.4;
+      } else {
+        this.maxParticles = options.maxParticles || 5;
+        this.decay = options.decay || 0.025;
+        this.startWidth = 2.5;
+        this.endWidth = 0.4;
+        this.glowSize = 10;
+        this.glowAlpha = 0.3;
+      }
+      
+      // 生成颜色
+      this.baseColor = this.generateColor();
+      this.gravity = new Vector3(0, 98, 0);
+      this.airResistance = 0.88;
+      this.minSpeed = 55;
+    }
   }
   
   generateColor() {
+    if (this.isSpark) {
+      // 火花颜色生成
+      return [1, 0.95 + Math.random() * 0.05, 0.8 + Math.random() * 0.1, 1];
+    }
+    
+    if (this.fixedColor) {
+      // 固定颜色转换
+      const color = [
+        this.fixedColor[0] / 255,
+        this.fixedColor[1] / 255,
+        this.fixedColor[2] / 255,
+        1
+      ];
+      return color;
+    }
+    
+    // HSL颜色生成
     const hue = (this.baseHue + Math.random() * 30) % 360;
-    return this.hslToRgb(hue / 360, 0.8, 0.5);  // 使用传入的转换方法
+    const rgb = this.hslToRgb(hue / 360, 0.8, 0.5);
+    return [...rgb, 1];
   }
   
   update(dt) {
@@ -71,12 +114,14 @@ export class ExplosionTrail {
     this.position = this.position.add(velocityDt);
     
     // 添加新的粒子
-    this.particles.unshift({
+    const newParticle = {
       position: this.position.clone(),
       size: 1.5 * this.life,
       alpha: this.life,
-      color: this.interpolateColor(this.baseColor, this.endColor, 1 - this.life)
-    });
+      color: this.isSpark ? this.generateColor() : this.baseColor
+    };
+    
+    this.particles.unshift(newParticle);
     
     if (this.particles.length > this.maxParticles) {
       this.particles.pop();
@@ -97,7 +142,6 @@ export class ExplosionTrail {
   render(ctx) {
     ctx.save();
     
-    // 渲染光束效果
     this.particles.forEach((particle, i) => {
       const nextParticle = this.particles[i + 1];
       if (!nextParticle) return;
@@ -105,25 +149,47 @@ export class ExplosionTrail {
       const progress = i / this.particles.length;
       const color = particle.color;
       
-      // 光束核心
-      const coreWidth = this.startWidth * (1 - progress) + this.endWidth * progress;
-      ctx.beginPath();
-      ctx.strokeStyle = `rgba(${color[0]*255},${color[1]*255},${color[2]*255},${particle.alpha})`;
-      ctx.lineWidth = coreWidth;
-      ctx.lineCap = 'round';
-      ctx.moveTo(particle.position.x, particle.position.y);
-      ctx.lineTo(nextParticle.position.x, nextParticle.position.y);
-      ctx.stroke();
-      
-      // 仅保留一层光晕，简化效果
-      const glowWidth = coreWidth * 2;
-      ctx.beginPath();
-      ctx.strokeStyle = `rgba(${color[0]*255},${color[1]*255},${color[2]*255},${particle.alpha * 0.3})`;
-      ctx.lineWidth = glowWidth;
-      ctx.lineCap = 'round';
-      ctx.moveTo(particle.position.x, particle.position.y);
-      ctx.lineTo(nextParticle.position.x, nextParticle.position.y);
-      ctx.stroke();
+      if (this.isSpark) {
+        // 火花特有的渲染逻辑
+        const width = this.startWidth * (1 - progress) + this.endWidth * progress;
+        ctx.beginPath();
+        ctx.strokeStyle = `rgba(${color[0]*255},${color[1]*255},${color[2]*255},${particle.alpha})`;
+        ctx.lineWidth = width;
+        ctx.lineCap = 'round';
+        ctx.moveTo(particle.position.x, particle.position.y);
+        ctx.lineTo(nextParticle.position.x, nextParticle.position.y);
+        ctx.stroke();
+        
+        // 火花的微弱光晕
+        if (this.sparkGlow) {
+          ctx.beginPath();
+          ctx.strokeStyle = `rgba(${color[0]*255},${color[1]*255},${color[2]*255},${particle.alpha * 0.3})`;
+          ctx.lineWidth = width * 1.5;
+          ctx.stroke();
+        }
+      } else {
+        // 普通爆炸粒子的渲染逻辑
+        const coreWidth = this.startWidth * (1 - progress) + this.endWidth * progress;
+        ctx.beginPath();
+        ctx.strokeStyle = `rgba(${color[0]*255},${color[1]*255},${color[2]*255},${particle.alpha})`;
+        ctx.lineWidth = coreWidth;
+        ctx.lineCap = 'round';
+        ctx.moveTo(particle.position.x, particle.position.y);
+        ctx.lineTo(nextParticle.position.x, nextParticle.position.y);
+        ctx.stroke();
+        
+        // 光晕效果
+        const glowWidth = this.isInner ? coreWidth * 2.5 : coreWidth * 2;
+        const glowAlpha = this.isInner ? particle.alpha * 0.6 : particle.alpha * 0.3;
+        
+        ctx.beginPath();
+        ctx.strokeStyle = `rgba(${color[0]*255},${color[1]*255},${color[2]*255},${glowAlpha})`;
+        ctx.lineWidth = glowWidth;
+        ctx.lineCap = 'round';
+        ctx.moveTo(particle.position.x, particle.position.y);
+        ctx.lineTo(nextParticle.position.x, nextParticle.position.y);
+        ctx.stroke();
+      }
     });
     
     ctx.restore();

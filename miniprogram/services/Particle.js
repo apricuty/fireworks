@@ -102,12 +102,6 @@ export class Particle {
         this.life = Math.max(0, this.life - this.decay);
         this.alpha = this.life;
         
-        console.log('[Flash Update]', {
-          life: this.life.toFixed(3),
-          decay: this.decay,
-          alpha: this.alpha.toFixed(3)
-        });
-        
         return this.life > 0;
       }
 
