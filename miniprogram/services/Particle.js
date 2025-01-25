@@ -21,7 +21,7 @@ export class Particle {
     this.color = [1, 1, 1, 1];
     
     // 生命周期
-    this.life = 1;
+    this.life = 1.0;
     this.decay = isRocket ? 0.0005 : 0.015;
     this.isRocket = isRocket;
     
@@ -51,6 +51,7 @@ export class Particle {
     
     this.tailParticles = [];
     this.tailLength = 5;
+    this.isFlash = false;
   }
 
   update(dt = 1/60) {
@@ -61,25 +62,30 @@ export class Particle {
         y: this.position.y
       };
 
-      // 计算新的速度
-      const newVelocity = this.velocity.add(this.acceleration.multiply(dt));
-      this.velocity = newVelocity;
-
-      // 计算新的位置
-      const newPosition = this.position.add(this.velocity.multiply(dt));
-      this.position = newPosition;
-
-      // 每500ms输出一次日志
-      const now = Date.now();
-      if (now - this.lastLogTime >= 500) {
-        const currentHeight = this.startY - this.position.y;
-        const heightPercent = (currentHeight / this.displayHeight) * 100;
-        const timeSinceLaunch = (now - this.launchTime) / 1000;
-        
-        this.lastLogTime = now;
+      // 计算新的速度和位置
+      if (!this.isFlash) {  // 闪光不需要更新位置
+        const newVelocity = this.velocity.add(this.acceleration.multiply(dt));
+        this.velocity = newVelocity;
+        const newPosition = this.position.add(this.velocity.multiply(dt));
+        this.position = newPosition;
       }
-      
-      // 计算速度相关的衰减
+
+      // 闪光效果的特殊处理
+      if (this.isFlash) {
+        // 直接衰减生命值，不受dt影响
+        this.life = Math.max(0, this.life - this.decay);
+        this.alpha = this.life;
+        
+        console.log('[Flash Update]', {
+          life: this.life.toFixed(3),
+          decay: this.decay,
+          alpha: this.alpha.toFixed(3)
+        });
+        
+        return this.life > 0;
+      }
+
+      // 以下是非闪光粒子的正常更新逻辑
       const speed = Math.sqrt(
         this.velocity.x * this.velocity.x + 
         this.velocity.y * this.velocity.y
@@ -95,29 +101,38 @@ export class Particle {
         );
       }
       
-      // 更新生命值
-      this.life -= this.decay;
-      
-      // 更新透明度
+      // 更新普通粒子的生命值
+      this.life -= this.decay * dt;
       this.alpha = this.life;
       
-      // 火箭粒子达到目标高度时爆炸
+      // 每500ms输出一次日志
+      const now = Date.now();
+      if (now - this.lastLogTime >= 500) {
+        const currentHeight = this.startY - this.position.y;
+        const heightPercent = (currentHeight / this.displayHeight) * 100;
+        const timeSinceLaunch = (now - this.launchTime) / 1000;
+        
+        this.lastLogTime = now;
+      }
+      
+      // 火箭粒子的爆炸判定
       if (this.isRocket) {
-          const currentHeight = this.startY - this.position.y;
-          const heightPercent = (currentHeight / this.displayHeight) * 100;
+        // 当火箭开始下落或达到目标高度时爆炸
+        if (this.velocity.y >= 0 || this.position.y <= this.targetHeight) {
+          // 获取FireworkSystem实例
+          const app = getApp();
+          const fireworkSystem = app.fireworkSystem;
           
-          // 检查是否达到目标高度或开始下落
-          if (this.position.y <= this.targetHeight || this.velocity.y >= 0) {
-              this.explodeTime = Date.now();
-              const flightTime = (this.explodeTime - this.launchTime) / 1000;
-              
-              this.phase = 'explode';
-              
-              const app = getApp();
-              if (app.fireworkSystem && app.fireworkSystem.audioManager) {
-                  app.fireworkSystem.audioManager.playExplodeSound();
-              }
+          if (fireworkSystem) {
+            // 调用新的爆炸效果
+            fireworkSystem.createExplosionParticles(this.position.clone());
+            // 播放爆炸音效
+            if (fireworkSystem.audioManager) {
+              fireworkSystem.audioManager.playExplodeSound();
+            }
+            return false; // 标记火箭消失
           }
+        }
       }
       
       // 更新扰动（添加错误检查）
@@ -201,11 +216,25 @@ export class Particle {
     if (config.velocity) this.velocity = config.velocity.clone();
     if (config.color) this.color = config.color;
     if (config.size) this.size = config.size;
+    if (config.decay) this.decay = config.decay;
+    // 重要：设置 isFlash 标记
+    this.isFlash = config.isFlash || false;
+    
     this.life = 1.0;
     this.alpha = 1;
     this.phase = 'launch';
     this.trail = [];
     this.lastTrailUpdate = Date.now();
+    
+    // 添加调试日志
+    if (this.isFlash) {
+      console.log('[Flash Init]', {
+        isFlash: this.isFlash,
+        decay: this.decay,
+        size: this.size
+      });
+    }
+    
     return this;
   }
 }

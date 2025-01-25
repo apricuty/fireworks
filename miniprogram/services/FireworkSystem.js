@@ -1,6 +1,7 @@
 import { Vector3 } from '../utils/math';
 import Particle from './Particle';
 import { ObjectPool } from '../utils/ObjectPool';
+import { ExplosionTrail } from './ExplosionTrail';
 
 export default class FireworkSystem {
   constructor() {
@@ -109,47 +110,107 @@ export default class FireworkSystem {
   }
 
   // 创建爆炸粒子
-  createExplosionParticles(position, color, text) {
-    // 如果是文字粒子，创建文字效果
-    if (text) {
-      this.createTextParticle(position, color, text);
-      return;
-    }
-
-    // 播放爆炸音效
-    if (this.audioManager) {
-      this.audioManager.playExplodeSound();
-      // 随机播放呼啸音效
-      if (Math.random() < 0.3) {
-        this.audioManager.playWhistleSound();
-      }
-    }
-
-    const particleCount = 50 + Math.floor(Math.random() * 50);
-    const baseHue = Math.random() * 360;
+  createExplosionParticles(position, color) {
+    // 创建中心爆炸闪光
+    const flash = this.particlePool.get();
+    flash.init({
+      position: position.clone(),
+      velocity: new Vector3(0, 0, 0),
+      color: [1, 1, 1, 1],
+      size: 15,
+      decay: 0.3,  // 每帧减少 0.3 的生命值
+      isFlash: true  // 重要：设置闪光标记
+    });
+    this.particles.push(flash);
     
-    for (let i = 0; i < particleCount; i++) {
-      const angle = (i / particleCount) * Math.PI * 2;
-      const speed = 2 + Math.random() * 3;
-      const hue = (baseHue + Math.random() * 30) % 360;
+    console.log('[Explosion Debug] Starting explosion at:', {
+      x: position.x.toFixed(2),
+      y: position.y.toFixed(2)
+    });
+    
+    // 主要爆炸效果
+    const trails = 36;
+    const baseHue = Math.random() * 360;
+    const spread = 1.5; // 基础扩散系数
+    
+    // 创建多层爆炸效果
+    for (let layer = 0; layer < 3; layer++) {
+      const layerSpread = spread * (layer * 0.5 + 1);
+      const layerCount = Math.floor(trails * (1 - layer * 0.2));
+      const layerDelay = layer * 20;
       
-      // HSL转RGB
-      const rgb = this.hslToRgb(hue / 360, 0.8, 0.5);
-      
-      const particle = this.particlePool.get();
-      particle.init({
-        position: position.clone(),
-        velocity: new Vector3(
-          Math.cos(angle) * speed,
-          Math.sin(angle) * speed,
-          0
-        ),
-        color: color || [...rgb, 1],
-        size: 2 + Math.random() * 2,
-        decay: 0.015 + Math.random() * 0.01
-      });
-      this.particles.push(particle);
+      setTimeout(() => {
+        // 显著提高基础速度
+        const baseSpeed = 400 + (2 - layer) * 50;  // 大幅提高基础速度
+        
+        for (let i = 0; i < layerCount; i++) {
+          const segmentAngle = (Math.PI * 2) / layerCount;
+          const angle = i * segmentAngle;
+          const angleOffset = (Math.random() - 0.5) * segmentAngle * 0.3;
+          const finalAngle = angle + angleOffset;
+          
+          // 计算最终速度
+          const speedVariation = 0.9 + Math.random() * 0.2;
+          const finalSpeed = baseSpeed * speedVariation * layerSpread;  // 重新加入 layerSpread
+          
+          // 创建轨迹
+          const trail = new ExplosionTrail({
+            position: position.clone(),
+            velocity: new Vector3(
+              Math.cos(finalAngle) * finalSpeed,
+              Math.sin(finalAngle) * finalSpeed,
+              0
+            ),
+            baseHue,
+            layer,
+            hslToRgb: this.hslToRgb.bind(this)
+          });
+          
+          this.particles.push(trail);
+        }
+        
+        console.log('[Explosion Debug] Layer created:', {
+          layer,
+          particleCount: layerCount,
+          baseSpeed,
+          finalSpeed: baseSpeed * layerSpread,
+          spread: layerSpread
+        });
+      }, layerDelay);
     }
+  }
+
+  // 创建爆炸中心闪光
+  createExplosionFlash(position) {
+    const flash = this.particlePool.get();
+    flash.init({
+      position: position.clone(),
+      velocity: new Vector3(0, 0, 0),
+      color: [1, 1, 1, 1],
+      size: 15,
+      decay: 15.0,  // 显著提高衰减速度，让闪光更快消失
+      isFlash: true
+    });
+    this.particles.push(flash);
+  }
+
+  // 创建爆炸轨迹
+  createExplosionTrail(options) {
+    const { position, angle, speed, baseHue, layer } = options;
+    
+    // 创建轨迹对象
+    const trail = new ExplosionTrail({
+      position,
+      velocity: new Vector3(
+        Math.cos(angle) * speed,
+        Math.sin(angle) * speed,
+        0
+      ),
+      baseHue,
+      layer
+    });
+    
+    return trail;
   }
 
   // 添加 HSL 转 RGB 的辅助方法
@@ -226,91 +287,40 @@ export default class FireworkSystem {
     // 清除画布
     this.ctx.clearRect(0, 0, this.displayWidth, this.displayHeight);
     
-    // 设置全局状态
+    // 设置混合模式
     this.ctx.globalCompositeOperation = 'screen';
     
-    // 批量处理所有粒子
-    const allParticles = [...this.rockets, ...this.particles];
-    
-    // 渲染所有轨迹点
-    this.ctx.save();
-    allParticles.forEach(particle => {
-      if (particle.trail.length < 2) return;
-      
-      // 计算基础透明度和大小
-      const baseAlpha = particle.alpha * 0.6;
-      const baseSize = particle.size;
-      
-      // 遍历轨迹点
-      for (let i = 0; i < particle.trail.length; i++) {
-        const point = particle.trail[i];
-        const progress = i / particle.trail.length;
-        
-        // 计算点的大小和透明度
-        const size = baseSize * (1 - progress * 0.5);
-        const alpha = baseAlpha * (1 - progress);
-        
-        // 绘制主发光点
-        this.ctx.beginPath();
-        this.ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.8})`;
-        this.ctx.arc(point.x, point.y, size * 0.8, 0, Math.PI * 2);
-        this.ctx.fill();
-        
-        // 绘制外发光
-      this.ctx.beginPath();
-        this.ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.3})`;
-        this.ctx.arc(point.x, point.y, size * 1.5, 0, Math.PI * 2);
-        this.ctx.fill();
-        
-        // 随机添加一些小点增加烟雾效果
-        if (Math.random() < 0.3) {
-          const offsetX = (Math.random() - 0.5) * size * 2;
-          const offsetY = (Math.random() - 0.5) * size * 2;
-          this.ctx.beginPath();
-          this.ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.2})`;
-          this.ctx.arc(
-            point.x + offsetX,
-            point.y + offsetY,
-            size * 0.4,
-            0,
-            Math.PI * 2
-          );
-          this.ctx.fill();
-        }
+    // 渲染所有粒子
+    [...this.rockets, ...this.particles].forEach(particle => {
+      if (particle instanceof ExplosionTrail) {
+        // 渲染爆炸轨迹
+        particle.render(this.ctx);
+      } else if (particle.isFlash) {
+        // 渲染爆炸闪光
+        this.renderExplosionFlash(particle);
+      } else {
+        // 渲染普通粒子
+        this.renderParticle(particle);
       }
     });
-    this.ctx.restore();
-    
-    // 渲染粒子本体
-    this.ctx.save();
-    allParticles.forEach(particle => {
-      // 绘制主体发光
-      this.ctx.beginPath();
-      this.ctx.fillStyle = `rgba(255, 255, 255, ${particle.alpha})`;
-      this.ctx.arc(
-        particle.position.x,
-        particle.position.y,
-        particle.size,
-        0,
-        Math.PI * 2
-      );
-      this.ctx.fill();
-      
-      // 绘制外发光
-        this.ctx.beginPath();
-      this.ctx.fillStyle = `rgba(255, 255, 255, ${particle.alpha * 0.5})`;
-        this.ctx.arc(
-          particle.position.x,
-          particle.position.y,
-          particle.size * 2,
-          0,
-          Math.PI * 2
-        );
-        this.ctx.fill();
-    });
-    this.ctx.restore();
 
     this.monitorPerformance();
+  }
+
+  renderExplosionFlash(particle) {
+    const gradient = this.ctx.createRadialGradient(
+      particle.position.x, particle.position.y, 0,
+      particle.position.x, particle.position.y, particle.size * 3
+    );
+    
+    gradient.addColorStop(0, `rgba(255, 255, 255, ${particle.alpha})`);
+    gradient.addColorStop(0.4, `rgba(255, 255, 255, ${particle.alpha * 0.3})`);
+    gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    
+    this.ctx.fillStyle = gradient;
+    this.ctx.beginPath();
+    this.ctx.arc(particle.position.x, particle.position.y, particle.size * 3, 0, Math.PI * 2);
+    this.ctx.fill();
   }
 
   // 设置相机跟随
@@ -566,5 +576,71 @@ export default class FireworkSystem {
         p.trailUpdateInterval = Math.min(32, p.trailUpdateInterval + 8);
       });
     }
+  }
+
+  // 在FireworkSystem类中添加renderParticle方法
+  renderParticle(particle) {
+    this.ctx.save();
+    
+    // 渲染拖尾
+    if (particle.trail && particle.trail.length > 1) {
+      const baseAlpha = particle.alpha * 0.6;
+      
+      particle.trail.forEach((point, i) => {
+        const progress = i / particle.trail.length;
+        const size = particle.size * (1 - progress * 0.5);
+        const alpha = baseAlpha * (1 - progress);
+        
+        // 绘制主发光点
+        this.ctx.beginPath();
+        this.ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.8})`;
+        this.ctx.arc(point.x, point.y, size * 0.8, 0, Math.PI * 2);
+        this.ctx.fill();
+        
+        // 绘制外发光
+        this.ctx.beginPath();
+        this.ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.3})`;
+        this.ctx.arc(point.x, point.y, size * 1.5, 0, Math.PI * 2);
+        this.ctx.fill();
+      });
+    }
+    
+    // 渲染粒子本体
+    const [r, g, b] = particle.color || [1, 1, 1];
+    
+    // 绘制外发光
+    const gradient = this.ctx.createRadialGradient(
+      particle.position.x, particle.position.y, 0,
+      particle.position.x, particle.position.y, particle.size * 2
+    );
+    
+    gradient.addColorStop(0, `rgba(${r*255}, ${g*255}, ${b*255}, ${particle.alpha})`);
+    gradient.addColorStop(0.4, `rgba(${r*255}, ${g*255}, ${b*255}, ${particle.alpha * 0.3})`);
+    gradient.addColorStop(1, `rgba(${r*255}, ${g*255}, ${b*255}, 0)`);
+    
+    this.ctx.fillStyle = gradient;
+    this.ctx.beginPath();
+    this.ctx.arc(
+      particle.position.x,
+      particle.position.y,
+      particle.size * 2,
+      0,
+      Math.PI * 2
+    );
+    this.ctx.fill();
+    
+    // 绘制核心
+    this.ctx.beginPath();
+    this.ctx.fillStyle = `rgba(${r*255}, ${g*255}, ${b*255}, ${particle.alpha})`;
+    this.ctx.arc(
+      particle.position.x,
+      particle.position.y,
+      particle.size,
+      0,
+      Math.PI * 2
+    );
+    this.ctx.fill();
+    
+    this.ctx.restore();
   }
 } 
